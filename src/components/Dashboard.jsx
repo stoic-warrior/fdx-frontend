@@ -5,7 +5,7 @@ import weeklyDataApi from '../api/weeklyDataApi';
 import dailyDataApi from '../api/dailyDataApi';
 import milestoneApi from '../api/milestoneApi';
 
-const Dashboard = ({ wigs, selectedWigId, onSelectWig, onWigChange }) => {
+const Dashboard = ({ wigs, selectedWigId, onSelectWig, onWigChange, refreshKey }) => {
     const [commitments, setCommitments] = useState([]);
     const [weeklyData, setWeeklyData] = useState([]);
     const [todayDailyData, setTodayDailyData] = useState(null);
@@ -13,6 +13,12 @@ const Dashboard = ({ wigs, selectedWigId, onSelectWig, onWigChange }) => {
     const [localMilestones, setLocalMilestones] = useState([]);
 
     const selectedWig = wigs.find(w => w.id === selectedWigId) || wigs[0];
+
+    // 로컬 시간 기준 오늘 날짜
+    const getLocalToday = () => {
+        const now = new Date();
+        return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    };
 
     // 선택된 WIG 바뀌면 로컬 마일스톤 동기화
     useEffect(() => {
@@ -26,11 +32,12 @@ const Dashboard = ({ wigs, selectedWigId, onSelectWig, onWigChange }) => {
         if (selectedWigId) {
             loadData();
         }
-    }, [selectedWigId]);
+    }, [selectedWigId, refreshKey]);
 
     const loadData = async () => {
         try {
             setLoading(true);
+
             const [commitmentsData, weeklyDataResult] = await Promise.all([
                 commitmentApi.getByWigIdAndWeek(selectedWigId, currentWeek),
                 weeklyDataApi.getByWigId(selectedWigId)
@@ -38,15 +45,26 @@ const Dashboard = ({ wigs, selectedWigId, onSelectWig, onWigChange }) => {
             setCommitments(commitmentsData);
             setWeeklyData(weeklyDataResult);
 
-            // 오늘 일간 데이터 가져오기 (최신 데이터로 대체)
+            // 모든 주차에서 오늘 날짜의 일간 데이터 찾기
             try {
-                const dailyResult = await dailyDataApi.getByWigIdAndWeek(selectedWigId, currentWeek);
-                if (dailyResult && dailyResult.length > 0) {
-                    // 가장 최근 데이터
-                    setTodayDailyData(dailyResult[dailyResult.length - 1]);
+                const today = getLocalToday();
+                const weeks = ['W1', 'W2', 'W3', 'W4', 'W5', 'W6', 'W7', 'W8'];
+
+                let foundTodayData = null;
+                for (const week of weeks) {
+                    const dailyResult = await dailyDataApi.getByWigIdAndWeek(selectedWigId, week);
+                    if (dailyResult && dailyResult.length > 0) {
+                        const todayData = dailyResult.find(d => d.date === today);
+                        if (todayData) {
+                            foundTodayData = todayData;
+                            break;
+                        }
+                    }
                 }
+                setTodayDailyData(foundTodayData);
             } catch (err) {
                 console.error('일간 데이터 로드 실패:', err);
+                setTodayDailyData(null);
             }
         } catch (err) {
             console.error('데이터 로드 실패:', err);

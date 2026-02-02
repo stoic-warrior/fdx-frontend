@@ -20,6 +20,9 @@ const App = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
 
+    // Dashboard 새로고침용 키
+    const [dashboardRefreshKey, setDashboardRefreshKey] = useState(0);
+
     // 초기 인증 상태 확인
     useEffect(() => {
         const token = authApi.getToken();
@@ -37,7 +40,7 @@ const App = () => {
             const data = await wigApi.getAll();
             setWigs(data);
 
-            // 첫 번째 WIG을 기본 선택
+            // 첫 번째 WIG를 기본 선택
             if (data.length > 0 && !selectedWigId) {
                 setSelectedWigId(data[0].id);
             }
@@ -72,6 +75,11 @@ const App = () => {
     // WIG 추가/삭제 시 재로드
     const handleWigChange = () => {
         loadWigs();
+    };
+
+    // 오늘 데이터 변경 시 Dashboard 새로고침
+    const handleTodayDataChange = () => {
+        setDashboardRefreshKey(prev => prev + 1);
     };
 
     // 인증 확인 전 로딩
@@ -234,6 +242,7 @@ const App = () => {
                             selectedWigId={selectedWigId}
                             onSelectWig={setSelectedWigId}
                             onWigChange={handleWigChange}
+                            refreshKey={dashboardRefreshKey}
                         />
                     )}
                     {activeTab === 'scoreboard' && (
@@ -241,6 +250,7 @@ const App = () => {
                             wigs={wigs}
                             selectedWigId={selectedWigId}
                             onSelectWig={setSelectedWigId}
+                            onTodayDataChange={handleTodayDataChange}
                         />
                     )}
                     {activeTab === 'commitments' && (
