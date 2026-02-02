@@ -23,7 +23,7 @@ const LoginPage = ({ onLoginSuccess }) => {
                 onLoginSuccess();
             } else {
                 // 회원가입
-                await authApi.register({ email, password, username });
+                await authApi.register({ email, password, name: username });
                 // 회원가입 성공 후 자동 로그인
                 const loginResponse = await authApi.login(email, password);
                 authApi.saveToken(loginResponse.accessToken);
@@ -38,7 +38,7 @@ const LoginPage = ({ onLoginSuccess }) => {
     };
 
     const fillTestAccount = () => {
-        setEmail('admin@test.com');
+        setEmail('test@example.com');
         setPassword('password123');
     };
 
@@ -160,7 +160,7 @@ const LoginPage = ({ onLoginSuccess }) => {
                         <div className="mt-6 p-4 bg-gray-50 rounded-lg">
                             <p className="text-sm text-gray-600 mb-2">🧪 테스트 계정:</p>
                             <div className="text-xs text-gray-500 space-y-1">
-                                <p>이메일: admin@test.com</p>
+                                <p>이메일: test@example.com</p>
                                 <p>비밀번호: password123</p>
                             </div>
                             <button

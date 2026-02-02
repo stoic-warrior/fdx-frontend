@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Target, TrendingUp, CheckSquare, Calendar, LogOut, User } from 'lucide-react';
+import { Target, TrendingUp, CheckSquare, Calendar, LogOut } from 'lucide-react';
 import wigApi from './api/wigApi';
 import authApi from './api/authApi';
 import Dashboard from './components/Dashboard';
@@ -73,9 +73,6 @@ const App = () => {
     const handleWigChange = () => {
         loadWigs();
     };
-
-    // 선택된 WIG
-    const selectedWig = wigs.find(w => w.id === selectedWigId) || wigs[0];
 
     // 인증 확인 전 로딩
     if (!authChecked) {
@@ -154,25 +151,28 @@ const App = () => {
                     </div>
                 </div>
 
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-                    <div className="bg-white p-12 rounded-lg shadow text-center">
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+                    <div className="bg-white rounded-lg shadow p-12 text-center">
                         <Target className="mx-auto mb-4 text-gray-400" size={64} />
-                        <h2 className="text-2xl font-bold text-gray-800 mb-2">WIG이 없습니다</h2>
-                        <p className="text-gray-600 mb-6">첫 번째 목표를 추가해보세요!</p>
+                        <h2 className="text-2xl font-bold text-gray-800 mb-2">
+                            아직 WIG가 없습니다
+                        </h2>
+                        <p className="text-gray-600 mb-6">
+                            가장 중요한 목표(WIG)를 만들어보세요!
+                        </p>
                         <button
-                            onClick={() => setActiveTab('management')}
-                            className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                            onClick={() => setActiveTab('wigs')}
+                            className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium"
                         >
-                            WIG 추가하기
+                            WIG 만들기
                         </button>
                     </div>
-                </div>
 
-                {activeTab === 'management' && (
-                    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-12">
+                    {/* WIG 관리 컴포넌트 */}
+                    <div className="mt-8">
                         <WIGManagement wigs={wigs} onWigChange={handleWigChange} />
                     </div>
-                )}
+                </div>
             </div>
         );
     }
@@ -185,27 +185,11 @@ const App = () => {
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                     <div className="flex justify-between items-center py-4">
                         <h1 className="text-2xl font-bold text-gray-900">WIG Tracker</h1>
-
-                        {/* WIG 선택 + 로그아웃 */}
                         <div className="flex items-center space-x-4">
-                            {wigs.length > 1 && (
-                                <select
-                                    value={selectedWigId || ''}
-                                    onChange={(e) => setSelectedWigId(Number(e.target.value))}
-                                    className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm"
-                                >
-                                    {wigs.map(wig => (
-                                        <option key={wig.id} value={wig.id}>
-                                            {wig.title}
-                                        </option>
-                                    ))}
-                                </select>
-                            )}
-
+                            <p className="text-sm text-gray-600">4 Disciplines of Execution</p>
                             <button
                                 onClick={handleLogout}
                                 className="flex items-center px-3 py-1.5 text-sm text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                                title="로그아웃"
                             >
                                 <LogOut size={16} className="mr-1" />
                                 로그아웃
@@ -215,47 +199,63 @@ const App = () => {
                 </div>
             </div>
 
-            {/* 탭 네비게이션 */}
-            <div className="bg-white border-b">
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                    <nav className="flex space-x-8">
+            {/* 메인 컨텐츠 */}
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+                {/* 탭 네비게이션 */}
+                <div className="mb-6">
+                    <div className="flex space-x-2 border-b border-gray-200">
                         {[
-                            { id: 'dashboard', icon: Target, label: '대시보드' },
-                            { id: 'scoreboard', icon: TrendingUp, label: '스코어보드' },
-                            { id: 'commitments', icon: CheckSquare, label: '주간 약속' },
-                            { id: 'management', icon: Calendar, label: 'WIG 관리' },
+                            { id: 'dashboard', label: '대시보드', icon: Target },
+                            { id: 'scoreboard', label: '스코어보드', icon: TrendingUp },
+                            { id: 'commitments', label: '주간 약속', icon: CheckSquare },
+                            { id: 'wigs', label: 'WIG 관리', icon: Calendar }
                         ].map(tab => (
                             <button
                                 key={tab.id}
                                 onClick={() => setActiveTab(tab.id)}
-                                className={`flex items-center py-4 px-1 border-b-2 font-medium text-sm ${
+                                className={`flex items-center space-x-2 px-6 py-3 font-medium transition-colors ${
                                     activeTab === tab.id
-                                        ? 'border-blue-600 text-blue-600'
-                                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                                        ? 'text-blue-600 border-b-2 border-blue-600'
+                                        : 'text-gray-600 hover:text-gray-900'
                                 }`}
                             >
-                                <tab.icon className="mr-2" size={18} />
-                                {tab.label}
+                                <tab.icon size={20} />
+                                <span>{tab.label}</span>
                             </button>
                         ))}
-                    </nav>
+                    </div>
                 </div>
-            </div>
 
-            {/* 콘텐츠 */}
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-                {activeTab === 'dashboard' && selectedWig && (
-                    <Dashboard wig={selectedWig} onDataChange={handleWigChange} />
-                )}
-                {activeTab === 'scoreboard' && selectedWig && (
-                    <Scoreboard wig={selectedWig} />
-                )}
-                {activeTab === 'commitments' && selectedWig && (
-                    <Commitments wig={selectedWig} onDataChange={handleWigChange} />
-                )}
-                {activeTab === 'management' && (
-                    <WIGManagement wigs={wigs} onWigChange={handleWigChange} />
-                )}
+                {/* 탭 컨텐츠 */}
+                <div>
+                    {activeTab === 'dashboard' && (
+                        <Dashboard
+                            wigs={wigs}
+                            selectedWigId={selectedWigId}
+                            onSelectWig={setSelectedWigId}
+                        />
+                    )}
+                    {activeTab === 'scoreboard' && (
+                        <Scoreboard
+                            wigs={wigs}
+                            selectedWigId={selectedWigId}
+                            onSelectWig={setSelectedWigId}
+                        />
+                    )}
+                    {activeTab === 'commitments' && (
+                        <Commitments
+                            wigs={wigs}
+                            selectedWigId={selectedWigId}
+                            onSelectWig={setSelectedWigId}
+                        />
+                    )}
+                    {activeTab === 'wigs' && (
+                        <WIGManagement
+                            wigs={wigs}
+                            onWigChange={handleWigChange}
+                        />
+                    )}
+                </div>
             </div>
         </div>
     );

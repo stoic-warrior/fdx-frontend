@@ -17,10 +17,10 @@ const authApi = {
 
     /**
      * 회원가입
-     * @param {Object} data - { email, password, username }
+     * @param {Object} data - { email, password, name }
      */
     register: async (data) => {
-        const response = await apiClient.post('/api/auth/register', data);
+        const response = await apiClient.post('/api/auth/signup', data);
         return response.data;
     },
 
