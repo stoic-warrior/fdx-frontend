@@ -233,6 +233,7 @@ const App = () => {
                             wigs={wigs}
                             selectedWigId={selectedWigId}
                             onSelectWig={setSelectedWigId}
+                            onWigChange={handleWigChange}
                         />
                     )}
                     {activeTab === 'scoreboard' && (
