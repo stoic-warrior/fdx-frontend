@@ -10,12 +10,24 @@ import leadMeasureApi from '../api/leadMeasureApi';
  * - Lead Measure 추가/수정/삭제
  * - Milestone 추가/수정/삭제 (체크는 Dashboard에서)
  */
-const WIGManagement = ({ wigs, onWigChange }) => {
+const WIGManagement = ({ wigs, onWigChange, autoShowForm, expandedWigId, setExpandedWigId }) => {
+    // 로컬 시간 기준 오늘 날짜
+    const getLocalToday = () => {
+        const now = new Date();
+        return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    };
+
+    // 내일 날짜 (목표일은 최소 내일부터)
+    const getLocalTomorrow = () => {
+        const tomorrow = new Date();
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        return `${tomorrow.getFullYear()}-${String(tomorrow.getMonth() + 1).padStart(2, '0')}-${String(tomorrow.getDate()).padStart(2, '0')}`;
+    };
+
     // WIG 관련 상태
-    const [showNewWigForm, setShowNewWigForm] = useState(false);
+    const [showNewWigForm, setShowNewWigForm] = useState(autoShowForm || false);
     const [editingWig, setEditingWig] = useState(null);
     const [wigCount, setWigCount] = useState(0);
-    const [expandedWigId, setExpandedWigId] = useState(null);
 
     // Lead Measure 관련 상태
     const [showLeadMeasureForm, setShowLeadMeasureForm] = useState(null);
@@ -108,34 +120,38 @@ const WIGManagement = ({ wigs, onWigChange }) => {
             });
             setNewLeadMeasure({ name: '', dailyTarget: '', weeklyTarget: '', unit: '' });
             setShowLeadMeasureForm(null);
-            onWigChange();
+            await onWigChange();
+            setExpandedWigId(wigId);
         } catch (err) {
             console.error('Lead Measure 생성 실패:', err);
             alert(err.message || 'Lead Measure 생성에 실패했습니다.');
         }
     };
 
-    const handleUpdateLeadMeasure = async () => {
+    const handleUpdateLeadMeasure = async (wigId) => {
         try {
             await leadMeasureApi.update(editingLeadMeasure.id, {
                 name: editingLeadMeasure.name,
                 dailyTarget: parseFloat(editingLeadMeasure.dailyTarget),
                 weeklyTarget: parseFloat(editingLeadMeasure.weeklyTarget),
-                unit: editingLeadMeasure.unit
+                unit: editingLeadMeasure.unit,
+                wigId: wigId
             });
             setEditingLeadMeasure(null);
-            onWigChange();
+            await onWigChange();
+            setExpandedWigId(wigId);
         } catch (err) {
             console.error('Lead Measure 수정 실패:', err);
             alert(err.message || 'Lead Measure 수정에 실패했습니다.');
         }
     };
 
-    const handleDeleteLeadMeasure = async (id) => {
+    const handleDeleteLeadMeasure = async (id, wigId) => {
         if (!confirm('이 Lead Measure를 삭제하시겠습니까?')) return;
         try {
             await leadMeasureApi.delete(id);
-            onWigChange();
+            await onWigChange();
+            setExpandedWigId(wigId);
         } catch (err) {
             console.error('Lead Measure 삭제 실패:', err);
             alert(err.message || 'Lead Measure 삭제에 실패했습니다.');
@@ -159,32 +175,36 @@ const WIGManagement = ({ wigs, onWigChange }) => {
             });
             setNewMilestone({ name: '', orderIndex: 1 });
             setShowMilestoneForm(null);
-            onWigChange();
+            await onWigChange();
+            setExpandedWigId(wigId);
         } catch (err) {
             console.error('Milestone 생성 실패:', err);
             alert(err.message || 'Milestone 생성에 실패했습니다.');
         }
     };
 
-    const handleUpdateMilestone = async () => {
+    const handleUpdateMilestone = async (wigId) => {
         try {
             await milestoneApi.update(editingMilestone.id, {
                 name: editingMilestone.name,
-                orderIndex: editingMilestone.orderIndex
+                orderIndex: editingMilestone.orderIndex,
+                wigId: wigId
             });
             setEditingMilestone(null);
-            onWigChange();
+            await onWigChange();
+            setExpandedWigId(wigId);
         } catch (err) {
             console.error('Milestone 수정 실패:', err);
             alert(err.message || 'Milestone 수정에 실패했습니다.');
         }
     };
 
-    const handleDeleteMilestone = async (id) => {
+    const handleDeleteMilestone = async (id, wigId) => {
         if (!confirm('이 Milestone을 삭제하시겠습니까?')) return;
         try {
             await milestoneApi.delete(id);
-            onWigChange();
+            await onWigChange();
+            setExpandedWigId(wigId);
         } catch (err) {
             console.error('Milestone 삭제 실패:', err);
             alert(err.message || 'Milestone 삭제에 실패했습니다.');
@@ -335,6 +355,7 @@ const WIGManagement = ({ wigs, onWigChange }) => {
                             <input
                                 type="date"
                                 value={newWig.byWhen}
+                                min={getLocalTomorrow()}
                                 onChange={e => setNewWig({...newWig, byWhen: e.target.value})}
                                 className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500"
                             />
@@ -397,9 +418,10 @@ const WIGManagement = ({ wigs, onWigChange }) => {
                                             className="p-2 border rounded"
                                         />
                                         <input
-                                            type="text"
+                                            type="date"
                                             placeholder="기한"
                                             value={editingWig.byWhen}
+                                            min={getLocalTomorrow()}
                                             onChange={e => setEditingWig({...editingWig, byWhen: e.target.value})}
                                             className="p-2 border rounded"
                                         />
@@ -478,10 +500,18 @@ const WIGManagement = ({ wigs, onWigChange }) => {
                                         <h5 className="font-semibold text-gray-800 flex items-center gap-2">
                                             <Activity className="text-blue-500" size={18} />
                                             Lead Measures (선행지표)
+                                            <span className="text-xs text-gray-500 font-normal">
+                                                ({wig.leadMeasures?.length || 0}/2)
+                                            </span>
                                         </h5>
                                         <button
                                             onClick={() => setShowLeadMeasureForm(wig.id)}
-                                            className="px-3 py-1 text-sm bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 flex items-center gap-1"
+                                            disabled={(wig.leadMeasures?.length || 0) >= 2}
+                                            className={`px-3 py-1 text-sm rounded-lg flex items-center gap-1 ${
+                                                (wig.leadMeasures?.length || 0) >= 2
+                                                    ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                                                    : 'bg-blue-100 text-blue-700 hover:bg-blue-200'
+                                            }`}
                                         >
                                             <Plus size={14} /> 추가
                                         </button>
@@ -573,7 +603,7 @@ const WIGManagement = ({ wigs, onWigChange }) => {
                                                                 className="p-1 border rounded w-16"
                                                                 placeholder="단위"
                                                             />
-                                                            <button onClick={handleUpdateLeadMeasure} className="p-1 text-green-600 hover:bg-green-50 rounded">
+                                                            <button onClick={() => handleUpdateLeadMeasure(wig.id)} className="p-1 text-green-600 hover:bg-green-50 rounded">
                                                                 <Check size={16} />
                                                             </button>
                                                             <button onClick={() => setEditingLeadMeasure(null)} className="p-1 text-gray-600 hover:bg-gray-100 rounded">
@@ -597,7 +627,7 @@ const WIGManagement = ({ wigs, onWigChange }) => {
                                                                     <Edit2 size={14} />
                                                                 </button>
                                                                 <button
-                                                                    onClick={() => handleDeleteLeadMeasure(lead.id)}
+                                                                    onClick={() => handleDeleteLeadMeasure(lead.id, wig.id)}
                                                                     className="p-1 text-red-600 hover:bg-red-50 rounded"
                                                                 >
                                                                     <Trash2 size={14} />
@@ -678,7 +708,7 @@ const WIGManagement = ({ wigs, onWigChange }) => {
                                                                     onChange={e => setEditingMilestone({...editingMilestone, name: e.target.value})}
                                                                     className="p-1 border rounded flex-1"
                                                                 />
-                                                                <button onClick={handleUpdateMilestone} className="p-1 text-green-600 hover:bg-green-50 rounded">
+                                                                <button onClick={() => handleUpdateMilestone(wig.id)} className="p-1 text-green-600 hover:bg-green-50 rounded">
                                                                     <Check size={16} />
                                                                 </button>
                                                                 <button onClick={() => setEditingMilestone(null)} className="p-1 text-gray-600 hover:bg-gray-100 rounded">
@@ -711,7 +741,7 @@ const WIGManagement = ({ wigs, onWigChange }) => {
                                                                         <Edit2 size={14} />
                                                                     </button>
                                                                     <button
-                                                                        onClick={() => handleDeleteMilestone(milestone.id)}
+                                                                        onClick={() => handleDeleteMilestone(milestone.id, wig.id)}
                                                                         className="p-1 text-red-600 hover:bg-red-50 rounded"
                                                                     >
                                                                         <Trash2 size={14} />

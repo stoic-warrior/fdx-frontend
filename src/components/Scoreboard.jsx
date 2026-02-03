@@ -468,24 +468,14 @@ const Scoreboard = ({ wigs, selectedWigId, onSelectWig, onTodayDataChange }) => 
                         </div>
                     </div>
 
-                    <div className="flex items-center gap-3">
-                        {/* 오늘 데이터 상태 */}
-                        <span className={`px-3 py-1 rounded-full text-sm ${
-                            todayData
-                                ? 'bg-green-100 text-green-700'
-                                : 'bg-yellow-100 text-yellow-700'
-                        }`}>
-                            {todayData ? '✓ 오늘 입력 완료' : '⚠ 오늘 미입력'}
-                        </span>
-
-                        <button
-                            onClick={() => setShowNewForm(true)}
-                            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-2"
-                        >
-                            <Plus size={18} />
-                            추가
-                        </button>
-                    </div>
+                    {/* 오늘 데이터 상태 */}
+                    <span className={`px-3 py-1 rounded-full text-sm ${
+                        todayData
+                            ? 'bg-green-100 text-green-700'
+                            : 'bg-yellow-100 text-yellow-700'
+                    }`}>
+                        {todayData ? '✓ 오늘 입력 완료' : '⚠ 오늘 미입력'}
+                    </span>
                 </div>
 
                 {/* 신규 입력 폼 */}
