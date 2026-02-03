@@ -17,6 +17,7 @@ const App = () => {
     const [activeTab, setActiveTab] = useState('dashboard');
     const [wigs, setWigs] = useState([]);
     const [selectedWigId, setSelectedWigId] = useState(null);
+    const [expandedWigId, setExpandedWigId] = useState(null);  // WIG 관리 탭에서 열린 WIG
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
 
@@ -44,6 +45,7 @@ const App = () => {
             if (data.length > 0 && !selectedWigId) {
                 setSelectedWigId(data[0].id);
             }
+            return data; // Promise 반환
         } catch (err) {
             console.error('WIG 로드 실패:', err);
             setError(err.message);
@@ -72,9 +74,9 @@ const App = () => {
         setSelectedWigId(null);
     };
 
-    // WIG 추가/삭제 시 재로드
-    const handleWigChange = () => {
-        loadWigs();
+    // WIG 추가/삭제 시 재로드 (Promise 반환)
+    const handleWigChange = async () => {
+        return await loadWigs();
     };
 
     // 오늘 데이터 변경 시 Dashboard 새로고침
@@ -160,26 +162,14 @@ const App = () => {
                 </div>
 
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-                    <div className="bg-white rounded-lg shadow p-12 text-center">
-                        <Target className="mx-auto mb-4 text-gray-400" size={64} />
-                        <h2 className="text-2xl font-bold text-gray-800 mb-2">
-                            아직 WIG가 없습니다
-                        </h2>
-                        <p className="text-gray-600 mb-6">
-                            가장 중요한 목표(WIG)를 만들어보세요!
-                        </p>
-                        <button
-                            onClick={() => setActiveTab('wigs')}
-                            className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium"
-                        >
-                            WIG 만들기
-                        </button>
-                    </div>
-
-                    {/* WIG 관리 컴포넌트 */}
-                    <div className="mt-8">
-                        <WIGManagement wigs={wigs} onWigChange={handleWigChange} />
-                    </div>
+                    {/* WIG 관리 컴포넌트 - 자동으로 폼 열림 */}
+                    <WIGManagement
+                        wigs={wigs}
+                        onWigChange={handleWigChange}
+                        autoShowForm={true}
+                        expandedWigId={expandedWigId}
+                        setExpandedWigId={setExpandedWigId}
+                    />
                 </div>
             </div>
         );
@@ -264,6 +254,8 @@ const App = () => {
                         <WIGManagement
                             wigs={wigs}
                             onWigChange={handleWigChange}
+                            expandedWigId={expandedWigId}
+                            setExpandedWigId={setExpandedWigId}
                         />
                     )}
                 </div>
