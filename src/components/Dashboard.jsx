@@ -248,23 +248,25 @@ const Dashboard = ({ wigs, selectedWigId, onSelectWig, onWigChange, refreshKey }
                                 ? (idx === 0 ? todayDailyData.lead1 : todayDailyData.lead2)
                                 : 0;
 
-                            // goalDirection에 따른 진행률 계산
-                            let dailyProgress = 0;
+                            const isMinimize = lead.goalDirection === 'MINIMIZE';
+
+                            // goalDirection에 따른 계산
+                            let barProgress = 0;
                             let isGood = false;
+                            let isOver = false;
+                            let diff = 0;
 
                             if (lead.dailyTarget) {
-                                if (lead.goalDirection === 'MINIMIZE') {
-                                    // 낮을수록 좋음: 목표보다 적으면 좋음
-                                    // 목표 1800, 실제 1500 → 100% (달성)
-                                    // 목표 1800, 실제 2000 → 초과
-                                    dailyProgress = dailyActual <= lead.dailyTarget
-                                        ? 100
-                                        : Math.max(0, ((2 * lead.dailyTarget - dailyActual) / lead.dailyTarget * 100)).toFixed(0);
+                                if (isMinimize) {
+                                    // 예산 방식: 사용량 / 한도
+                                    barProgress = (dailyActual / lead.dailyTarget) * 100;
                                     isGood = dailyActual <= lead.dailyTarget;
+                                    isOver = dailyActual > lead.dailyTarget;
+                                    diff = lead.dailyTarget - dailyActual; // 양수면 여유, 음수면 초과
                                 } else {
                                     // 높을수록 좋음 (기본)
-                                    dailyProgress = ((dailyActual || 0) / lead.dailyTarget * 100).toFixed(0);
-                                    isGood = dailyProgress >= 100;
+                                    barProgress = ((dailyActual || 0) / lead.dailyTarget * 100);
+                                    isGood = barProgress >= 100;
                                 }
                             }
 
@@ -272,38 +274,62 @@ const Dashboard = ({ wigs, selectedWigId, onSelectWig, onWigChange, refreshKey }
                                 <div key={lead.id} className="flex items-center gap-4">
                                     <div className="w-36 flex-shrink-0">
                                         <span className="font-medium text-gray-700">{lead.name}</span>
-                                        <span className={`text-xs ml-1 ${lead.goalDirection === 'MINIMIZE' ? 'text-orange-500' : 'text-green-500'}`}>
-                                            {lead.goalDirection === 'MINIMIZE' ? '↓' : '↑'}
-                                        </span>
-                                        <span className="text-gray-400 text-xs ml-1">
-                                            ({lead.goalDirection === 'MINIMIZE' ? '≤' : '≥'}{lead.dailyTarget}{lead.unit})
+                                        <span className={`text-xs ml-1 ${isMinimize ? 'text-orange-500' : 'text-green-500'}`}>
+                                            {isMinimize ? '↓' : '↑'}
                                         </span>
                                     </div>
                                     <div className="flex-1">
-                                        <div className="w-full bg-gray-200 rounded-full h-2">
-                                            <div
-                                                className={`h-2 rounded-full transition-all duration-500 ${
-                                                    isGood ? 'bg-green-500' :
-                                                        dailyProgress >= 70 ? 'bg-blue-500' :
-                                                            lead.goalDirection === 'MINIMIZE' ? 'bg-red-500' : 'bg-yellow-500'
-                                                }`}
-                                                style={{ width: `${Math.min(100, Math.max(0, dailyProgress))}%` }}
-                                            />
-                                        </div>
-                                    </div>
-                                    <div className="w-28 text-right flex-shrink-0">
-                                        <span className={`text-sm ${isGood ? 'text-green-600 font-medium' : 'text-gray-600'}`}>
-                                            {dailyActual || 0} {lead.unit}
-                                        </span>
-                                        {lead.goalDirection === 'MINIMIZE' && dailyActual > 0 && (
-                                            <span className={`text-xs ml-1 ${dailyActual <= lead.dailyTarget ? 'text-green-500' : 'text-red-500'}`}>
-                                                ({dailyActual <= lead.dailyTarget ? '✓' : `+${(dailyActual - lead.dailyTarget).toFixed(0)}`})
-                                            </span>
+                                        {isMinimize ? (
+                                            // 예산 방식 바
+                                            <div className="w-full bg-gray-200 rounded-full h-3 relative overflow-hidden">
+                                                <div
+                                                    className={`h-3 rounded-full transition-all duration-500 ${
+                                                        isOver ? 'bg-red-500' :
+                                                            barProgress >= 80 ? 'bg-yellow-500' : 'bg-green-500'
+                                                    }`}
+                                                    style={{ width: `${Math.min(100, barProgress)}%` }}
+                                                />
+                                                {isOver && (
+                                                    <div
+                                                        className="absolute top-0 right-0 h-3 bg-red-600 animate-pulse"
+                                                        style={{ width: `${Math.min(30, barProgress - 100)}%` }}
+                                                    />
+                                                )}
+                                            </div>
+                                        ) : (
+                                            // 기존 방식
+                                            <div className="w-full bg-gray-200 rounded-full h-3">
+                                                <div
+                                                    className={`h-3 rounded-full transition-all duration-500 ${
+                                                        isGood ? 'bg-green-500' :
+                                                            barProgress >= 70 ? 'bg-blue-500' : 'bg-yellow-500'
+                                                    }`}
+                                                    style={{ width: `${Math.min(100, barProgress)}%` }}
+                                                />
+                                            </div>
                                         )}
-                                        {lead.goalDirection !== 'MINIMIZE' && (
-                                            <span className="text-xs text-gray-400 ml-1">
-                                                ({dailyProgress}%)
-                                            </span>
+                                    </div>
+                                    <div className="w-32 text-right flex-shrink-0">
+                                        {isMinimize ? (
+                                            // 예산 방식 표시
+                                            <>
+                                                <span className={`text-sm font-medium ${isOver ? 'text-red-600' : 'text-gray-700'}`}>
+                                                    {dailyActual || 0} / {lead.dailyTarget} {lead.unit}
+                                                </span>
+                                                <div className={`text-xs ${isGood ? 'text-green-600' : 'text-red-600'}`}>
+                                                    {diff >= 0 ? `여유 ${diff.toFixed(0)}` : `초과 ${Math.abs(diff).toFixed(0)}`}
+                                                </div>
+                                            </>
+                                        ) : (
+                                            // 기존 방식 표시
+                                            <>
+                                                <span className={`text-sm ${isGood ? 'text-green-600 font-medium' : 'text-gray-600'}`}>
+                                                    {dailyActual || 0} {lead.unit}
+                                                </span>
+                                                <span className="text-xs text-gray-400 ml-1">
+                                                    ({barProgress.toFixed(0)}%)
+                                                </span>
+                                            </>
                                         )}
                                     </div>
                                 </div>

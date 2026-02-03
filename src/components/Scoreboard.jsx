@@ -13,24 +13,57 @@ import weeklyDataApi from '../api/weeklyDataApi';
 const Scoreboard = ({ wigs, selectedWigId, onSelectWig, onTodayDataChange }) => {
     const [dailyData, setDailyData] = useState({});
     const [loading, setLoading] = useState(false);
-    const [chartTypes, setChartTypes] = useState({ lag: 'line', lead1: 'line', lead2: 'line' });
-    const [chartTimeViews, setChartTimeViews] = useState({ lag: 'weekly', lead1: 'weekly', lead2: 'weekly' });
-    const [selectedChartWeek, setSelectedChartWeek] = useState({ lead1: 'W1', lead2: 'W1' });
-    const [selectedWeek, setSelectedWeek] = useState('W1');
+
+    // localStorage에서 차트 설정 불러오기
+    const [chartTypes, setChartTypes] = useState(() => {
+        const saved = localStorage.getItem('scoreboard_chartTypes');
+        return saved ? JSON.parse(saved) : { lag: 'line', lead1: 'line', lead2: 'line' };
+    });
+    const [chartTimeViews, setChartTimeViews] = useState(() => {
+        const saved = localStorage.getItem('scoreboard_chartTimeViews');
+        return saved ? JSON.parse(saved) : { lag: 'weekly', lead1: 'weekly', lead2: 'weekly' };
+    });
+    const [selectedWeek, setSelectedWeek] = useState(() => {
+        return localStorage.getItem('scoreboard_selectedWeek') || 'W1';
+    });
+
+    // 차트 설정 변경 시 localStorage에 저장
+    useEffect(() => {
+        localStorage.setItem('scoreboard_chartTypes', JSON.stringify(chartTypes));
+    }, [chartTypes]);
+
+    useEffect(() => {
+        localStorage.setItem('scoreboard_chartTimeViews', JSON.stringify(chartTimeViews));
+    }, [chartTimeViews]);
+
+    useEffect(() => {
+        localStorage.setItem('scoreboard_selectedWeek', selectedWeek);
+    }, [selectedWeek]);
+
+    // WIG 변경 시 현재 주차로 설정 (localStorage에 저장된 값이 유효하지 않으면)
+    useEffect(() => {
+        if (selectedWig && weeks.length > 0) {
+            const savedWeek = localStorage.getItem('scoreboard_selectedWeek');
+            if (!savedWeek || !weeks.includes(savedWeek)) {
+                const currentWeek = getCurrentWeek();
+                setSelectedWeek(currentWeek);
+            }
+        }
+    }, [selectedWigId]);
 
     // 편집 상태
     const [editingId, setEditingId] = useState(null);
     const [editData, setEditData] = useState({});
 
-    // 신규 입력 상태
-    const [showNewForm, setShowNewForm] = useState(false);
+    // 신규 입력 상태 (인라인 - 날짜 기준)
+    const [creatingDate, setCreatingDate] = useState(null);
     const getLocalToday = () => {
         const now = new Date();
         return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
     };
     const [newData, setNewData] = useState({
-        date: getLocalToday(),
-        dayOfWeek: ['일', '월', '화', '수', '목', '금', '토'][new Date().getDay()],
+        date: '',
+        dayOfWeek: '',
         lead1: '',
         lead2: ''
     });
@@ -47,10 +80,42 @@ const Scoreboard = ({ wigs, selectedWigId, onSelectWig, onTodayDataChange }) => 
     const [newWeeklyActual, setNewWeeklyActual] = useState('');
 
     const selectedWig = wigs.find(w => w.id === selectedWigId) || wigs[0];
-    const weeks = ['W1', 'W2', 'W3', 'W4', 'W5', 'W6', 'W7', 'W8'];
 
     // WIG 생성일 (min 날짜로 사용)
     const wigCreatedDate = selectedWig?.createdAt?.split('T')[0] || '2020-01-01';
+
+    // WIG 기간에 따른 동적 주차 계산
+    const calculateWeeks = () => {
+        if (!selectedWig) return ['W1'];
+
+        const startDate = new Date(wigCreatedDate);
+        const endDate = selectedWig.byWhen ? new Date(selectedWig.byWhen) : new Date();
+        const today = new Date(getLocalToday());
+
+        // 목표일과 오늘 중 더 늦은 날짜까지 주차 생성
+        const finalDate = new Date(Math.max(endDate, today));
+
+        const diffTime = finalDate - startDate;
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        const totalWeeks = Math.max(1, Math.ceil(diffDays / 7));
+
+        return Array.from({ length: totalWeeks }, (_, i) => `W${i + 1}`);
+    };
+
+    const weeks = calculateWeeks();
+
+    // 현재 주차 계산 (오늘 기준)
+    const getCurrentWeek = () => {
+        const startDate = new Date(wigCreatedDate);
+        const today = new Date(getLocalToday());
+        const diffTime = today - startDate;
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        const currentWeekNum = Math.max(1, Math.ceil(diffDays / 7));
+        const currentWeek = `W${currentWeekNum}`;
+
+        // weeks 범위 내에 있는지 확인
+        return weeks.includes(currentWeek) ? currentWeek : weeks[weeks.length - 1];
+    };
 
     // 빈 날짜를 0으로 채워서 반환 (WIG 생성일 ~ 오늘)
     const fillMissingDates = (weekData, week) => {
@@ -196,7 +261,7 @@ const Scoreboard = ({ wigs, selectedWigId, onSelectWig, onTodayDataChange }) => 
                 return;
             }
 
-            await dailyDataApi.create({
+            const response = await dailyDataApi.create({
                 date: newData.date,
                 week: selectedWeek,
                 dayOfWeek: newData.dayOfWeek,
@@ -204,17 +269,16 @@ const Scoreboard = ({ wigs, selectedWigId, onSelectWig, onTodayDataChange }) => 
                 lead2: newData.lead2 ? parseFloat(newData.lead2) : null,
                 wigId: selectedWigId
             });
-            setShowNewForm(false);
+
+            // 로컬 state 업데이트 (리로드 없이)
+            setDailyData(prev => ({
+                ...prev,
+                [selectedWeek]: [...(prev[selectedWeek] || []), response].sort((a, b) => a.date.localeCompare(b.date))
+            }));
 
             const inputDate = newData.date;
-
-            setNewData({
-                date: getLocalToday(),
-                dayOfWeek: ['일', '월', '화', '수', '목', '금', '토'][new Date().getDay()],
-                lead1: '',
-                lead2: ''
-            });
-            loadData();
+            setCreatingDate(null);
+            setNewData({ date: '', dayOfWeek: '', lead1: '', lead2: '' });
 
             // 오늘 데이터 변경 시 Dashboard에 알림
             if (inputDate === today && onTodayDataChange) {
@@ -237,7 +301,7 @@ const Scoreboard = ({ wigs, selectedWigId, onSelectWig, onTodayDataChange }) => 
                 return;
             }
 
-            await dailyDataApi.update(id, {
+            const response = await dailyDataApi.update(id, {
                 date: editData.date,
                 week: editData.week,
                 dayOfWeek: editData.dayOfWeek,
@@ -245,8 +309,16 @@ const Scoreboard = ({ wigs, selectedWigId, onSelectWig, onTodayDataChange }) => 
                 lead2: editData.lead2 ? parseFloat(editData.lead2) : null,
                 wigId: selectedWigId
             });
+
+            // 로컬 state 업데이트 (리로드 없이)
+            setDailyData(prev => ({
+                ...prev,
+                [selectedWeek]: (prev[selectedWeek] || []).map(item =>
+                    item.id === id ? response : item
+                )
+            }));
+
             setEditingId(null);
-            loadData();
 
             // 오늘 데이터 변경 시 Dashboard에 알림
             if (editData.date === today && onTodayDataChange) {
@@ -265,7 +337,12 @@ const Scoreboard = ({ wigs, selectedWigId, onSelectWig, onTodayDataChange }) => 
             const today = getLocalToday();
 
             await dailyDataApi.delete(id);
-            loadData();
+
+            // 로컬 state 업데이트 (리로드 없이)
+            setDailyData(prev => ({
+                ...prev,
+                [selectedWeek]: (prev[selectedWeek] || []).filter(item => item.id !== id)
+            }));
 
             // 오늘 데이터 삭제 시 Dashboard에 알림
             if (itemDate === today && onTodayDataChange) {
@@ -292,21 +369,41 @@ const Scoreboard = ({ wigs, selectedWigId, onSelectWig, onTodayDataChange }) => 
 
     return (
         <div className="space-y-6">
-            {/* WIG 선택 탭 */}
-            <div className="flex space-x-4 overflow-x-auto pb-2">
-                {wigs.map(wig => (
-                    <button
-                        key={wig.id}
-                        onClick={() => onSelectWig(wig.id)}
-                        className={`flex-shrink-0 px-4 py-2 rounded-lg font-medium transition-all ${
-                            selectedWig.id === wig.id
-                                ? 'bg-blue-600 text-white shadow-lg'
-                                : 'bg-white text-gray-700 border border-gray-200 hover:border-blue-300'
-                        }`}
+            {/* WIG 선택 + 주차 선택 */}
+            <div className="flex items-center justify-between flex-wrap gap-4">
+                {/* WIG 선택 탭 */}
+                <div className="flex space-x-4 overflow-x-auto pb-2">
+                    {wigs.map(wig => (
+                        <button
+                            key={wig.id}
+                            onClick={() => onSelectWig(wig.id)}
+                            className={`flex-shrink-0 px-4 py-2 rounded-lg font-medium transition-all ${
+                                selectedWig.id === wig.id
+                                    ? 'bg-blue-600 text-white shadow-lg'
+                                    : 'bg-white text-gray-700 border border-gray-200 hover:border-blue-300'
+                            }`}
+                        >
+                            {wig.title}
+                        </button>
+                    ))}
+                </div>
+
+                {/* 주차 선택 드롭다운 */}
+                <div className="flex items-center gap-3">
+                    <label className="text-sm font-medium text-gray-600">주차:</label>
+                    <select
+                        value={selectedWeek}
+                        onChange={(e) => setSelectedWeek(e.target.value)}
+                        className="px-3 py-2 border border-gray-300 rounded-lg bg-white text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500"
                     >
-                        {wig.title}
-                    </button>
-                ))}
+                        {weeks.map(week => (
+                            <option key={week} value={week}>{week}</option>
+                        ))}
+                    </select>
+                    <span className="text-xs text-gray-500">
+                        (현재: {getCurrentWeek()})
+                    </span>
+                </div>
             </div>
 
             {/* 차트 영역 */}
@@ -357,8 +454,7 @@ const Scoreboard = ({ wigs, selectedWigId, onSelectWig, onTodayDataChange }) => 
                 {selectedWig.leadMeasures?.map((lead, idx) => {
                     const chartKey = `lead${idx + 1}`;
                     const timeView = chartTimeViews[chartKey] || 'weekly';
-                    const chartWeek = selectedChartWeek[chartKey] || 'W1';
-                    const dataToShow = timeView === 'weekly' ? weeklyChartData : (dailyData[chartWeek] || []);
+                    const dataToShow = timeView === 'weekly' ? weeklyChartData : (dailyData[selectedWeek] || []);
                     const xKey = timeView === 'weekly' ? 'week' : 'dayOfWeek';
                     const targetValue = timeView === 'weekly' ? lead.weeklyTarget : lead.dailyTarget;
 
@@ -395,26 +491,6 @@ const Scoreboard = ({ wigs, selectedWigId, onSelectWig, onTodayDataChange }) => 
                                 </div>
                             </div>
 
-                            {/* 일간 뷰일 때 주차 선택 */}
-                            {timeView === 'daily' && (
-                                <div className="mb-3 flex items-center gap-2 flex-wrap">
-                                    <span className="text-sm font-medium text-gray-600">주 선택:</span>
-                                    {weeks.slice(0, 6).map(week => (
-                                        <button
-                                            key={week}
-                                            onClick={() => setSelectedChartWeek(prev => ({ ...prev, [chartKey]: week }))}
-                                            className={`px-3 py-1 rounded text-xs font-medium ${
-                                                chartWeek === week
-                                                    ? 'bg-blue-600 text-white'
-                                                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                                            }`}
-                                        >
-                                            {week}
-                                        </button>
-                                    ))}
-                                </div>
-                            )}
-
                             <ResponsiveContainer width="100%" height={200}>
                                 {chartTypes[chartKey] === 'line' ? (
                                     <LineChart data={dataToShow}>
@@ -448,25 +524,7 @@ const Scoreboard = ({ wigs, selectedWigId, onSelectWig, onTodayDataChange }) => 
             <div className="bg-white rounded-lg shadow">
                 {/* 테이블 헤더 */}
                 <div className="p-4 border-b flex items-center justify-between flex-wrap gap-4">
-                    <div className="flex items-center gap-4 flex-wrap">
-                        <h3 className="font-bold text-lg">일간 데이터 입력</h3>
-                        <div className="flex items-center gap-2">
-                            <span className="text-sm text-gray-600">주차:</span>
-                            {weeks.slice(0, 6).map(week => (
-                                <button
-                                    key={week}
-                                    onClick={() => setSelectedWeek(week)}
-                                    className={`px-3 py-1 rounded text-sm ${
-                                        selectedWeek === week
-                                            ? 'bg-blue-600 text-white'
-                                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                                    }`}
-                                >
-                                    {week}
-                                </button>
-                            ))}
-                        </div>
-                    </div>
+                    <h3 className="font-bold text-lg">{selectedWeek} 일간 데이터 입력</h3>
 
                     {/* 오늘 데이터 상태 */}
                     <span className={`px-3 py-1 rounded-full text-sm ${
@@ -477,75 +535,6 @@ const Scoreboard = ({ wigs, selectedWigId, onSelectWig, onTodayDataChange }) => 
                         {todayData ? '✓ 오늘 입력 완료' : '⚠ 오늘 미입력'}
                     </span>
                 </div>
-
-                {/* 신규 입력 폼 */}
-                {showNewForm && (
-                    <div className="p-4 bg-blue-50 border-b">
-                        <div className="flex items-center gap-4 flex-wrap">
-                            <div>
-                                <label className="block text-xs text-gray-600 mb-1">날짜</label>
-                                <input
-                                    type="date"
-                                    value={newData.date}
-                                    min={wigCreatedDate}
-                                    max={getLocalToday()}
-                                    onChange={e => {
-                                        const date = new Date(e.target.value);
-                                        setNewData({
-                                            ...newData,
-                                            date: e.target.value,
-                                            dayOfWeek: ['일', '월', '화', '수', '목', '금', '토'][date.getDay()]
-                                        });
-                                    }}
-                                    className="p-2 border rounded"
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-xs text-gray-600 mb-1">요일</label>
-                                <input
-                                    type="text"
-                                    value={newData.dayOfWeek}
-                                    readOnly
-                                    className="p-2 border rounded w-16 bg-gray-100"
-                                />
-                            </div>
-                            {selectedWig.leadMeasures?.[0] && (
-                                <div>
-                                    <label className="block text-xs text-gray-600 mb-1">{selectedWig.leadMeasures[0].name}</label>
-                                    <input
-                                        type="number"
-                                        step="0.1"
-                                        placeholder={`목표: ${selectedWig.leadMeasures[0].dailyTarget}`}
-                                        value={newData.lead1}
-                                        onChange={e => setNewData({...newData, lead1: e.target.value})}
-                                        className="p-2 border rounded w-28"
-                                    />
-                                </div>
-                            )}
-                            {selectedWig.leadMeasures?.[1] && (
-                                <div>
-                                    <label className="block text-xs text-gray-600 mb-1">{selectedWig.leadMeasures[1].name}</label>
-                                    <input
-                                        type="number"
-                                        step="0.1"
-                                        placeholder={`목표: ${selectedWig.leadMeasures[1].dailyTarget}`}
-                                        value={newData.lead2}
-                                        onChange={e => setNewData({...newData, lead2: e.target.value})}
-                                        className="p-2 border rounded w-28"
-                                    />
-                                </div>
-                            )}
-                            <div className="flex items-end gap-2">
-                                <button onClick={handleCreate} className="p-2 bg-green-600 text-white rounded hover:bg-green-700">
-                                    <Check size={18} />
-                                </button>
-                                <button onClick={() => setShowNewForm(false)} className="p-2 bg-gray-400 text-white rounded hover:bg-gray-500">
-                                    <X size={18} />
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                )}
 
                 {/* 주간 합산 요약 + Actual 입력 (NUMERIC 타입만) */}
                 <div className="p-4 bg-gray-50 border-b">
@@ -717,6 +706,45 @@ const Scoreboard = ({ wigs, selectedWigId, onSelectWig, onTodayDataChange }) => 
                                             </button>
                                         </td>
                                     </>
+                                ) : creatingDate === item.date && item.isEmpty ? (
+                                    // 입력 모드 (인라인)
+                                    <>
+                                        <td className="px-4 py-3">{item.date}</td>
+                                        <td className="px-4 py-3">{item.dayOfWeek}</td>
+                                        {selectedWig.leadMeasures?.[0] && (
+                                            <td className="px-4 py-3">
+                                                <input
+                                                    type="number"
+                                                    step="0.1"
+                                                    value={newData.lead1}
+                                                    onChange={e => setNewData({...newData, lead1: e.target.value})}
+                                                    className="p-1 border rounded w-20"
+                                                    placeholder={selectedWig.leadMeasures[0].dailyTarget}
+                                                    autoFocus
+                                                />
+                                            </td>
+                                        )}
+                                        {selectedWig.leadMeasures?.[1] && (
+                                            <td className="px-4 py-3">
+                                                <input
+                                                    type="number"
+                                                    step="0.1"
+                                                    value={newData.lead2}
+                                                    onChange={e => setNewData({...newData, lead2: e.target.value})}
+                                                    className="p-1 border rounded w-20"
+                                                    placeholder={selectedWig.leadMeasures[1].dailyTarget}
+                                                />
+                                            </td>
+                                        )}
+                                        <td className="px-4 py-3 text-center">
+                                            <button onClick={handleCreate} className="p-1 text-green-600 hover:bg-green-50 rounded mr-1">
+                                                <Check size={16} />
+                                            </button>
+                                            <button onClick={() => { setCreatingDate(null); setNewData({ date: '', dayOfWeek: '', lead1: '', lead2: '' }); }} className="p-1 text-gray-600 hover:bg-gray-100 rounded">
+                                                <X size={16} />
+                                            </button>
+                                        </td>
+                                    </>
                                 ) : (
                                     // 보기 모드
                                     <>
@@ -730,16 +758,16 @@ const Scoreboard = ({ wigs, selectedWigId, onSelectWig, onTodayDataChange }) => 
                                         )}
                                         <td className="px-4 py-3 text-center">
                                             {item.isEmpty ? (
-                                                // 빈 데이터: 클릭하면 해당 날짜로 추가
+                                                // 빈 데이터: 클릭하면 인라인 입력 모드
                                                 <button
                                                     onClick={() => {
+                                                        setCreatingDate(item.date);
                                                         setNewData({
                                                             date: item.date,
                                                             dayOfWeek: item.dayOfWeek,
                                                             lead1: '',
                                                             lead2: ''
                                                         });
-                                                        setShowNewForm(true);
                                                     }}
                                                     className="px-2 py-1 text-xs text-blue-600 hover:bg-blue-50 rounded"
                                                 >
@@ -764,7 +792,7 @@ const Scoreboard = ({ wigs, selectedWigId, onSelectWig, onTodayDataChange }) => 
                         {currentDailyData.length === 0 && (
                             <tr>
                                 <td colSpan={10} className="px-4 py-8 text-center text-gray-500">
-                                    {selectedWeek} 주차 데이터가 없습니다. 위의 "추가" 버튼을 눌러 데이터를 입력하세요.
+                                    {selectedWeek} 주차 데이터가 없습니다.
                                 </td>
                             </tr>
                         )}
