@@ -247,36 +247,64 @@ const Dashboard = ({ wigs, selectedWigId, onSelectWig, onWigChange, refreshKey }
                             const dailyActual = todayDailyData
                                 ? (idx === 0 ? todayDailyData.lead1 : todayDailyData.lead2)
                                 : 0;
-                            const dailyProgress = lead.dailyTarget
-                                ? ((dailyActual || 0) / lead.dailyTarget * 100).toFixed(0)
-                                : 0;
+
+                            // goalDirection에 따른 진행률 계산
+                            let dailyProgress = 0;
+                            let isGood = false;
+
+                            if (lead.dailyTarget) {
+                                if (lead.goalDirection === 'MINIMIZE') {
+                                    // 낮을수록 좋음: 목표보다 적으면 좋음
+                                    // 목표 1800, 실제 1500 → 100% (달성)
+                                    // 목표 1800, 실제 2000 → 초과
+                                    dailyProgress = dailyActual <= lead.dailyTarget
+                                        ? 100
+                                        : Math.max(0, ((2 * lead.dailyTarget - dailyActual) / lead.dailyTarget * 100)).toFixed(0);
+                                    isGood = dailyActual <= lead.dailyTarget;
+                                } else {
+                                    // 높을수록 좋음 (기본)
+                                    dailyProgress = ((dailyActual || 0) / lead.dailyTarget * 100).toFixed(0);
+                                    isGood = dailyProgress >= 100;
+                                }
+                            }
 
                             return (
                                 <div key={lead.id} className="flex items-center gap-4">
-                                    <div className="w-32 flex-shrink-0">
+                                    <div className="w-36 flex-shrink-0">
                                         <span className="font-medium text-gray-700">{lead.name}</span>
+                                        <span className={`text-xs ml-1 ${lead.goalDirection === 'MINIMIZE' ? 'text-orange-500' : 'text-green-500'}`}>
+                                            {lead.goalDirection === 'MINIMIZE' ? '↓' : '↑'}
+                                        </span>
                                         <span className="text-gray-400 text-xs ml-1">
-                                            (일 {lead.dailyTarget}{lead.unit})
+                                            ({lead.goalDirection === 'MINIMIZE' ? '≤' : '≥'}{lead.dailyTarget}{lead.unit})
                                         </span>
                                     </div>
                                     <div className="flex-1">
                                         <div className="w-full bg-gray-200 rounded-full h-2">
                                             <div
                                                 className={`h-2 rounded-full transition-all duration-500 ${
-                                                    dailyProgress >= 100 ? 'bg-green-500' :
-                                                        dailyProgress >= 70 ? 'bg-blue-500' : 'bg-yellow-500'
+                                                    isGood ? 'bg-green-500' :
+                                                        dailyProgress >= 70 ? 'bg-blue-500' :
+                                                            lead.goalDirection === 'MINIMIZE' ? 'bg-red-500' : 'bg-yellow-500'
                                                 }`}
-                                                style={{ width: `${Math.min(100, dailyProgress)}%` }}
+                                                style={{ width: `${Math.min(100, Math.max(0, dailyProgress))}%` }}
                                             />
                                         </div>
                                     </div>
-                                    <div className="w-24 text-right flex-shrink-0">
-                                        <span className="text-sm text-gray-600">
+                                    <div className="w-28 text-right flex-shrink-0">
+                                        <span className={`text-sm ${isGood ? 'text-green-600 font-medium' : 'text-gray-600'}`}>
                                             {dailyActual || 0} {lead.unit}
                                         </span>
-                                        <span className="text-xs text-gray-400 ml-1">
-                                            ({dailyProgress}%)
-                                        </span>
+                                        {lead.goalDirection === 'MINIMIZE' && dailyActual > 0 && (
+                                            <span className={`text-xs ml-1 ${dailyActual <= lead.dailyTarget ? 'text-green-500' : 'text-red-500'}`}>
+                                                ({dailyActual <= lead.dailyTarget ? '✓' : `+${(dailyActual - lead.dailyTarget).toFixed(0)}`})
+                                            </span>
+                                        )}
+                                        {lead.goalDirection !== 'MINIMIZE' && (
+                                            <span className="text-xs text-gray-400 ml-1">
+                                                ({dailyProgress}%)
+                                            </span>
+                                        )}
                                     </div>
                                 </div>
                             );
