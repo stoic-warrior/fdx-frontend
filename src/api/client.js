@@ -3,8 +3,6 @@ import axios from 'axios';
 // API 기본 URL (환경변수 또는 기본값)
 const BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
 
-console.log('🔥 ENV:', import.meta.env.VITE_API_BASE_URL);
-console.log('🔥 BASE_URL:', BASE_URL);
 
 // Axios 인스턴스 생성
 const apiClient = axios.create({
