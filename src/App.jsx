@@ -17,17 +17,55 @@ const App = () => {
     const [activeTab, setActiveTab] = useState('dashboard');
     const [wigs, setWigs] = useState([]);
     const [selectedWigId, setSelectedWigId] = useState(null);
-    const [expandedWigId, setExpandedWigId] = useState(null);  // WIG 관리 탭에서 열린 WIG
+    const [expandedWigId, setExpandedWigId] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+
+    // 사용자 정보 (OAuth 프로필 이미지 등)
+    const [user, setUser] = useState(null);
 
     // Dashboard 새로고침용 키
     const [dashboardRefreshKey, setDashboardRefreshKey] = useState(0);
 
-    // 초기 인증 상태 확인
+    // ⭐ OAuth 콜백 처리 + 초기 인증 상태 확인
     useEffect(() => {
-        const token = authApi.getToken();
-        setIsAuthenticated(!!token);
+        // OAuth 콜백 체크 (URL에 token 파라미터 있는지)
+        const params = new URLSearchParams(window.location.search);
+        const token = params.get('token');
+
+        if (token) {
+            // OAuth 로그인 성공 - 토큰 저장
+            localStorage.setItem('accessToken', token);
+
+            // URL에서 사용자 정보도 가져오기
+            const email = params.get('email');
+            const name = decodeURIComponent(params.get('name') || '');
+            const provider = params.get('provider');
+            const profileImageUrl = params.get('profileImageUrl')
+                ? decodeURIComponent(params.get('profileImageUrl'))
+                : null;
+
+            const userData = { email, name, provider, profileImageUrl };
+            localStorage.setItem('user', JSON.stringify(userData));
+            setUser(userData);
+
+            // URL 파라미터 제거 (깔끔하게)
+            window.history.replaceState({}, document.title, '/');
+
+            setIsAuthenticated(true);
+            setAuthChecked(true);
+            return;
+        }
+
+        // 일반 토큰 체크
+        const savedToken = authApi.getToken();
+        const savedUser = localStorage.getItem('user');
+
+        if (savedUser) {
+            setUser(JSON.parse(savedUser));
+        }
+
+        setIsAuthenticated(!!savedToken);
         setAuthChecked(true);
     }, []);
 
@@ -45,7 +83,7 @@ const App = () => {
             if (data.length > 0 && !selectedWigId) {
                 setSelectedWigId(data[0].id);
             }
-            return data; // Promise 반환
+            return data;
         } catch (err) {
             console.error('WIG 로드 실패:', err);
             setError(err.message);
@@ -62,19 +100,32 @@ const App = () => {
     }, [isAuthenticated]);
 
     // 로그인 성공 핸들러
-    const handleLoginSuccess = () => {
+    const handleLoginSuccess = (response) => {
+        // 일반 로그인 시 사용자 정보 저장
+        if (response) {
+            const userData = {
+                email: response.email,
+                name: response.name,
+                provider: response.provider || 'LOCAL',
+                profileImageUrl: response.profileImageUrl || null
+            };
+            setUser(userData);
+            localStorage.setItem('user', JSON.stringify(userData));
+        }
         setIsAuthenticated(true);
     };
 
     // 로그아웃 핸들러
     const handleLogout = () => {
         authApi.removeToken();
+        localStorage.removeItem('user');
         setIsAuthenticated(false);
+        setUser(null);
         setWigs([]);
         setSelectedWigId(null);
     };
 
-    // WIG 추가/삭제 시 재로드 (Promise 반환)
+    // WIG 추가/삭제 시 재로드
     const handleWigChange = async () => {
         return await loadWigs();
     };
@@ -139,30 +190,57 @@ const App = () => {
         );
     }
 
+    // ⭐ 헤더 컴포넌트 (프로필 이미지 포함)
+    const Header = () => (
+        <div className="bg-white shadow">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div className="flex justify-between items-center py-4">
+                    <h1 className="text-2xl font-bold text-gray-900">WIG Tracker</h1>
+                    <div className="flex items-center space-x-4">
+                        <p className="text-sm text-gray-600">4 Disciplines of Execution</p>
+
+                        {/* 사용자 프로필 */}
+                        <div className="flex items-center space-x-3">
+                            {user?.profileImageUrl ? (
+                                <img
+                                    src={user.profileImageUrl}
+                                    alt={user.name}
+                                    className="w-8 h-8 rounded-full object-cover"
+                                />
+                            ) : (
+                                <div className="w-8 h-8 rounded-full bg-indigo-500 flex items-center justify-center text-white font-medium text-sm">
+                                    {user?.name?.charAt(0) || 'U'}
+                                </div>
+                            )}
+                            <span className="text-sm font-medium text-gray-700 hidden md:block">
+                                {user?.name || '사용자'}
+                            </span>
+                            {user?.provider && user.provider !== 'LOCAL' && (
+                                <span className="text-xs px-2 py-0.5 bg-gray-100 text-gray-500 rounded-full hidden md:block">
+                                    {user.provider}
+                                </span>
+                            )}
+                        </div>
+
+                        <button
+                            onClick={handleLogout}
+                            className="flex items-center px-3 py-1.5 text-sm text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                        >
+                            <LogOut size={16} className="mr-1" />
+                            로그아웃
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+
     // WIG이 없을 때
     if (wigs.length === 0) {
         return (
             <div className="min-h-screen bg-gray-100">
-                <div className="bg-white shadow">
-                    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                        <div className="flex justify-between items-center py-4">
-                            <h1 className="text-2xl font-bold text-gray-900">WIG Tracker</h1>
-                            <div className="flex items-center space-x-4">
-                                <p className="text-sm text-gray-600">4 Disciplines of Execution</p>
-                                <button
-                                    onClick={handleLogout}
-                                    className="flex items-center px-3 py-1.5 text-sm text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                                >
-                                    <LogOut size={16} className="mr-1" />
-                                    로그아웃
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
+                <Header />
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-                    {/* WIG 관리 컴포넌트 - 자동으로 폼 열림 */}
                     <WIGManagement
                         wigs={wigs}
                         onWigChange={handleWigChange}
@@ -178,24 +256,7 @@ const App = () => {
     // 메인 UI
     return (
         <div className="min-h-screen bg-gray-100">
-            {/* 헤더 */}
-            <div className="bg-white shadow">
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                    <div className="flex justify-between items-center py-4">
-                        <h1 className="text-2xl font-bold text-gray-900">WIG Tracker</h1>
-                        <div className="flex items-center space-x-4">
-                            <p className="text-sm text-gray-600">4 Disciplines of Execution</p>
-                            <button
-                                onClick={handleLogout}
-                                className="flex items-center px-3 py-1.5 text-sm text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                            >
-                                <LogOut size={16} className="mr-1" />
-                                로그아웃
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
+            <Header />
 
             {/* 메인 컨텐츠 */}
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
