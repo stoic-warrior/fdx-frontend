@@ -3,12 +3,10 @@ import { Mail, Lock, User, Eye, EyeOff } from 'lucide-react';
 import authApi from '../api/authApi';
 
 // 백엔드 URL
-// OAuth 전용 URL (AWS 직접 연결)
-const OAUTH_BASE_URL = 'http://16.176.34.92:8080';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
 
-const handleOAuthLogin = (provider) => {
-    window.location.href = `${OAUTH_BASE_URL}/oauth2/authorization/${provider}`;
-};
+// OAuth 전용 URL (프록시 불가, 직접 연결 필요)
+const OAUTH_BASE_URL = 'http://16.176.34.92:8080';
 
 /**
  * 로그인/회원가입 페이지
@@ -28,8 +26,8 @@ const LoginPage = ({ onLoginSuccess }) => {
 
     // ⭐ OAuth 로그인 URL
     const handleOAuthLogin = (provider) => {
-        const url = `${API_BASE_URL}/oauth2/authorization/${provider}`;
-        console.log('OAuth URL:', url);  // ← 이거 추가
+        const url = `${OAUTH_BASE_URL}/oauth2/authorization/${provider}`;
+        console.log('OAuth URL:', url);
         window.location.href = url;
     };
 
