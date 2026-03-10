@@ -43,7 +43,7 @@ const LoginPage = ({ onLoginSuccess }) => {
                     email: formData.email,
                     password: formData.password
                 });
-                localStorage.setItem('token', response.accessToken);
+                localStorage.setItem('accessToken', response.accessToken);
                 localStorage.setItem('user', JSON.stringify({
                     email: response.email,
                     name: response.name,
