@@ -57,14 +57,7 @@ const LoginPage = ({ onLoginSuccess }) => {
                 alert('회원가입 성공! 로그인해주세요.');
             }
         } catch (err) {
-            if (err.response?.data?.fieldErrors) {
-                const messages = Object.values(err.response.data.fieldErrors).join('\n');
-                setError(messages);
-            } else if (err.response?.data?.message) {
-                setError(err.response.data.message);
-            } else {
-                setError(err.message || '처리 중 오류가 발생했습니다.');
-            }
+            setError(err.message || '처리 중 오류가 발생했습니다.');
         } finally {
             setLoading(false);
         }
@@ -153,6 +146,7 @@ const LoginPage = ({ onLoginSuccess }) => {
                                     className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                                     required
                                     minLength={2}
+                                    maxLength={50}
                                 />
                             </div>
                         )}
