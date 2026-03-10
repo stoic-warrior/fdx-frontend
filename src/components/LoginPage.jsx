@@ -145,6 +145,7 @@ const LoginPage = ({ onLoginSuccess }) => {
                                     onChange={(e) => setFormData({...formData, name: e.target.value})}
                                     className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                                     required
+                                    minLength={2}
                                 />
                             </div>
                         )}
@@ -172,7 +173,7 @@ const LoginPage = ({ onLoginSuccess }) => {
                                 onChange={(e) => setFormData({...formData, password: e.target.value})}
                                 className="w-full pl-10 pr-12 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                                 required
-                                minLength={6}
+                                minLength={8}
                             />
                             <button
                                 type="button"
