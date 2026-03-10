@@ -57,7 +57,14 @@ const LoginPage = ({ onLoginSuccess }) => {
                 alert('회원가입 성공! 로그인해주세요.');
             }
         } catch (err) {
-            setError(err.message || '처리 중 오류가 발생했습니다.');
+            if (err.response?.data?.fieldErrors) {
+                const messages = Object.values(err.response.data.fieldErrors).join('\n');
+                setError(messages);
+            } else if (err.response?.data?.message) {
+                setError(err.response.data.message);
+            } else {
+                setError(err.message || '처리 중 오류가 발생했습니다.');
+            }
         } finally {
             setLoading(false);
         }
