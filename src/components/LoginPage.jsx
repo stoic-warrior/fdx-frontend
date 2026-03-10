@@ -51,7 +51,7 @@ const LoginPage = ({ onLoginSuccess }) => {
                 }));
                 onLoginSuccess(response);
             } else {
-                await authApi.signup(formData);
+                await authApi.register(formData);
                 setIsLogin(true);
                 setError('');
                 alert('회원가입 성공! 로그인해주세요.');
