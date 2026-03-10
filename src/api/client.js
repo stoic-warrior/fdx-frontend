@@ -58,8 +58,7 @@ apiClient.interceptors.response.use(
             }
 
             // 사용자에게 보여줄 에러 메시지
-            const errorMessage = data?.message || data?.error || '알 수 없는 오류가 발생했습니다.';
-            return Promise.reject(new Error(errorMessage));
+            return Promise.reject(error);
         } else if (error.request) {
             // 요청은 보냈지만 응답을 받지 못함
             console.error('No response received:', error.request);
