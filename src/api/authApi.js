@@ -10,7 +10,7 @@ const authApi = {
      * @param {string} password - 비밀번호
      * @returns {Promise<{accessToken: string, tokenType: string, expiresIn: number}>}
      */
-    login: async (email, password) => {
+    login: async ({ email, password }) => {
         const response = await apiClient.post('/api/auth/login', { email, password });
         return response.data;
     },
