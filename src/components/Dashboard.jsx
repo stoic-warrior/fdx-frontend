@@ -243,9 +243,10 @@ const Dashboard = ({ wigs, selectedWigId, onSelectWig, onWigChange, refreshKey }
                     </h3>
                     <div className="space-y-3">
                         {selectedWig.leadMeasures.map((lead, idx) => {
-                            // 오늘 일간 데이터에서 실적 가져오기
+                            // 동적으로 lead1~lead5에서 값 가져오기
+                            const leadKey = `lead${idx + 1}`;
                             const dailyActual = todayDailyData
-                                ? (idx === 0 ? todayDailyData.lead1 : todayDailyData.lead2)
+                                ? (todayDailyData[leadKey] || 0)
                                 : 0;
 
                             const isMinimize = lead.goalDirection === 'MINIMIZE';

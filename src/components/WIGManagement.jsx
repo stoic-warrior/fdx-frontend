@@ -503,14 +503,14 @@ const WIGManagement = ({ wigs, onWigChange, autoShowForm, expandedWigId, setExpa
                                             <Activity className="text-blue-500" size={18} />
                                             Lead Measures (선행지표)
                                             <span className="text-xs text-gray-500 font-normal">
-                                                ({wig.leadMeasures?.length || 0}/2)
+                                                ({wig.leadMeasures?.length || 0}/5)
                                             </span>
                                         </h5>
                                         <button
                                             onClick={() => setShowLeadMeasureForm(wig.id)}
-                                            disabled={(wig.leadMeasures?.length || 0) >= 2}
+                                            disabled={(wig.leadMeasures?.length || 0) >= 5}
                                             className={`px-3 py-1 text-sm rounded-lg flex items-center gap-1 ${
-                                                (wig.leadMeasures?.length || 0) >= 2
+                                                (wig.leadMeasures?.length || 0) >= 5
                                                     ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
                                                     : 'bg-blue-100 text-blue-700 hover:bg-blue-200'
                                             }`}
