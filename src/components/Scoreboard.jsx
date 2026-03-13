@@ -17,11 +17,11 @@ const Scoreboard = ({ wigs, selectedWigId, onSelectWig, onTodayDataChange }) => 
     // localStorage에서 차트 설정 불러오기
     const [chartTypes, setChartTypes] = useState(() => {
         const saved = localStorage.getItem('scoreboard_chartTypes');
-        return saved ? JSON.parse(saved) : { lag: 'line', lead1: 'line', lead2: 'line' };
+        return saved ? JSON.parse(saved) : { lag: 'line', lead1: 'line', lead2: 'line', lead3: 'line', lead4: 'line', lead5: 'line' };
     });
     const [chartTimeViews, setChartTimeViews] = useState(() => {
         const saved = localStorage.getItem('scoreboard_chartTimeViews');
-        return saved ? JSON.parse(saved) : { lag: 'weekly', lead1: 'weekly', lead2: 'weekly' };
+        return saved ? JSON.parse(saved) : { lag: 'weekly', lead1: 'weekly', lead2: 'weekly', lead3: 'weekly', lead4: 'weekly', lead5: 'weekly' };
     });
     const [selectedWeek, setSelectedWeek] = useState(() => {
         return localStorage.getItem('scoreboard_selectedWeek') || 'W1';
@@ -65,7 +65,10 @@ const Scoreboard = ({ wigs, selectedWigId, onSelectWig, onTodayDataChange }) => 
         date: '',
         dayOfWeek: '',
         lead1: '',
-        lead2: ''
+        lead2: '',
+        lead3: '',
+        lead4: '',
+        lead5: ''
     });
 
     // 오늘 데이터가 이미 있는지 체크
@@ -138,6 +141,9 @@ const Scoreboard = ({ wigs, selectedWigId, onSelectWig, onTodayDataChange }) => 
                     dayOfWeek: ['일', '월', '화', '수', '목', '금', '토'][d.getDay()],
                     lead1: 0,
                     lead2: 0,
+                    lead3: 0,
+                    lead4: 0,
+                    lead5: 0,
                     isEmpty: true  // 빈 데이터 표시
                 });
             }
@@ -207,20 +213,22 @@ const Scoreboard = ({ wigs, selectedWigId, onSelectWig, onTodayDataChange }) => 
             const weekDailyData = dailyData[week] || [];
             const weeklyData = weeklyActual[week];
 
-            // lead는 일간 합산
-            const lead1Sum = weekDailyData.reduce((sum, d) => sum + (d.lead1 || 0), 0);
-            const lead2Sum = weekDailyData.reduce((sum, d) => sum + (d.lead2 || 0), 0);
+            // lead는 일간 합산 (동적으로 lead1~lead5)
+            const leadSums = {};
+            for (let i = 1; i <= 5; i++) {
+                leadSums[`lead${i}`] = weekDailyData.reduce((sum, d) => sum + (d[`lead${i}`] || 0), 0);
+            }
 
             // actual은 주간 데이터에서 직접 가져옴
             const actual = weeklyData?.actual;
 
-            if (!actual && lead1Sum === 0 && lead2Sum === 0) return null;
+            const allLeadsZero = Object.values(leadSums).every(v => v === 0);
+            if (!actual && allLeadsZero) return null;
 
             return {
                 week,
                 actual,
-                lead1: lead1Sum,
-                lead2: lead2Sum,
+                ...leadSums,
                 weeklyDataId: weeklyData?.id
             };
         }).filter(d => d !== null);
@@ -267,6 +275,9 @@ const Scoreboard = ({ wigs, selectedWigId, onSelectWig, onTodayDataChange }) => 
                 dayOfWeek: newData.dayOfWeek,
                 lead1: newData.lead1 ? parseFloat(newData.lead1) : null,
                 lead2: newData.lead2 ? parseFloat(newData.lead2) : null,
+                lead3: newData.lead3 ? parseFloat(newData.lead3) : null,
+                lead4: newData.lead4 ? parseFloat(newData.lead4) : null,
+                lead5: newData.lead5 ? parseFloat(newData.lead5) : null,
                 wigId: selectedWigId
             });
 
@@ -278,7 +289,7 @@ const Scoreboard = ({ wigs, selectedWigId, onSelectWig, onTodayDataChange }) => 
 
             const inputDate = newData.date;
             setCreatingDate(null);
-            setNewData({ date: '', dayOfWeek: '', lead1: '', lead2: '' });
+            setNewData({ date: '', dayOfWeek: '', lead1: '', lead2: '', lead3: '', lead4: '', lead5: '' });
 
             // 오늘 데이터 변경 시 Dashboard에 알림
             if (inputDate === today && onTodayDataChange) {
@@ -307,6 +318,9 @@ const Scoreboard = ({ wigs, selectedWigId, onSelectWig, onTodayDataChange }) => 
                 dayOfWeek: editData.dayOfWeek,
                 lead1: editData.lead1 ? parseFloat(editData.lead1) : null,
                 lead2: editData.lead2 ? parseFloat(editData.lead2) : null,
+                lead3: editData.lead3 ? parseFloat(editData.lead3) : null,
+                lead4: editData.lead4 ? parseFloat(editData.lead4) : null,
+                lead5: editData.lead5 ? parseFloat(editData.lead5) : null,
                 wigId: selectedWigId
             });
 
@@ -499,7 +513,7 @@ const Scoreboard = ({ wigs, selectedWigId, onSelectWig, onTodayDataChange }) => 
                                         <YAxis />
                                         <Tooltip />
                                         <ReferenceLine y={targetValue} stroke="#ef4444" strokeDasharray="5 5" />
-                                        <Line type="monotone" dataKey={chartKey} stroke={idx === 0 ? "#10b981" : "#f59e0b"} strokeWidth={3} name={lead.name} />
+                                        <Line type="monotone" dataKey={chartKey} stroke={["#10b981", "#f59e0b", "#3b82f6", "#ef4444", "#8b5cf6"][idx]} strokeWidth={3} name={lead.name} />
                                     </LineChart>
                                 ) : (
                                     <BarChart data={dataToShow}>
@@ -508,7 +522,7 @@ const Scoreboard = ({ wigs, selectedWigId, onSelectWig, onTodayDataChange }) => 
                                         <YAxis />
                                         <Tooltip />
                                         <ReferenceLine y={targetValue} stroke="#ef4444" strokeDasharray="5 5" />
-                                        <Bar dataKey={chartKey} fill={idx === 0 ? "#10b981" : "#f59e0b"} name={lead.name} />
+                                        <Bar dataKey={chartKey} fill={["#10b981", "#f59e0b", "#3b82f6", "#ef4444", "#8b5cf6"][idx]} name={lead.name} />
                                     </BarChart>
                                 )}
                             </ResponsiveContainer>
@@ -545,12 +559,9 @@ const Scoreboard = ({ wigs, selectedWigId, onSelectWig, onTodayDataChange }) => 
                                 const weekSummary = weeklyChartData.find(w => w.week === selectedWeek);
                                 return (
                                     <span className="ml-2">
-                                        {selectedWig.leadMeasures?.[0] && (
-                                            <span className="mr-4">{selectedWig.leadMeasures[0].name}: {weekSummary?.lead1 || 0} {selectedWig.leadMeasures[0].unit}</span>
-                                        )}
-                                        {selectedWig.leadMeasures?.[1] && (
-                                            <span>{selectedWig.leadMeasures[1].name}: {weekSummary?.lead2 || 0} {selectedWig.leadMeasures[1].unit}</span>
-                                        )}
+                                        {selectedWig.leadMeasures?.map((lead, idx) => (
+                                            <span key={lead.id} className="mr-4">{lead.name}: {weekSummary?.[`lead${idx + 1}`] || 0} {lead.unit}</span>
+                                        ))}
                                     </span>
                                 );
                             })()}
@@ -638,16 +649,11 @@ const Scoreboard = ({ wigs, selectedWigId, onSelectWig, onTodayDataChange }) => 
                         <tr>
                             <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">날짜</th>
                             <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">요일</th>
-                            {selectedWig.leadMeasures?.[0] && (
-                                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">
-                                    {selectedWig.leadMeasures[0].name} ({selectedWig.leadMeasures[0].unit})
+                            {selectedWig.leadMeasures?.map(lead => (
+                                <th key={lead.id} className="px-4 py-3 text-left text-sm font-semibold text-gray-700">
+                                    {lead.name} ({lead.unit})
                                 </th>
-                            )}
-                            {selectedWig.leadMeasures?.[1] && (
-                                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">
-                                    {selectedWig.leadMeasures[1].name} ({selectedWig.leadMeasures[1].unit})
-                                </th>
-                            )}
+                            ))}
                             <th className="px-4 py-3 text-center text-sm font-semibold text-gray-700">액션</th>
                         </tr>
                         </thead>
@@ -675,28 +681,20 @@ const Scoreboard = ({ wigs, selectedWigId, onSelectWig, onTodayDataChange }) => 
                                             />
                                         </td>
                                         <td className="px-4 py-3">{editData.dayOfWeek}</td>
-                                        {selectedWig.leadMeasures?.[0] && (
-                                            <td className="px-4 py-3">
-                                                <input
-                                                    type="number"
-                                                    step="0.1"
-                                                    value={editData.lead1 || ''}
-                                                    onChange={e => setEditData({...editData, lead1: e.target.value})}
-                                                    className="p-1 border rounded w-20"
-                                                />
-                                            </td>
-                                        )}
-                                        {selectedWig.leadMeasures?.[1] && (
-                                            <td className="px-4 py-3">
-                                                <input
-                                                    type="number"
-                                                    step="0.1"
-                                                    value={editData.lead2 || ''}
-                                                    onChange={e => setEditData({...editData, lead2: e.target.value})}
-                                                    className="p-1 border rounded w-20"
-                                                />
-                                            </td>
-                                        )}
+                                        {selectedWig.leadMeasures?.map((lead, idx) => {
+                                            const key = `lead${idx + 1}`;
+                                            return (
+                                                <td key={lead.id} className="px-4 py-3">
+                                                    <input
+                                                        type="number"
+                                                        step="0.1"
+                                                        value={editData[key] || ''}
+                                                        onChange={e => setEditData({...editData, [key]: e.target.value})}
+                                                        className="p-1 border rounded w-20"
+                                                    />
+                                                </td>
+                                            );
+                                        })}
                                         <td className="px-4 py-3 text-center">
                                             <button onClick={() => handleUpdate(item.id)} className="p-1 text-green-600 hover:bg-green-50 rounded mr-1">
                                                 <Check size={16} />
@@ -711,36 +709,27 @@ const Scoreboard = ({ wigs, selectedWigId, onSelectWig, onTodayDataChange }) => 
                                     <>
                                         <td className="px-4 py-3">{item.date}</td>
                                         <td className="px-4 py-3">{item.dayOfWeek}</td>
-                                        {selectedWig.leadMeasures?.[0] && (
-                                            <td className="px-4 py-3">
-                                                <input
-                                                    type="number"
-                                                    step="0.1"
-                                                    value={newData.lead1}
-                                                    onChange={e => setNewData({...newData, lead1: e.target.value})}
-                                                    className="p-1 border rounded w-20"
-                                                    placeholder={selectedWig.leadMeasures[0].dailyTarget}
-                                                    autoFocus
-                                                />
-                                            </td>
-                                        )}
-                                        {selectedWig.leadMeasures?.[1] && (
-                                            <td className="px-4 py-3">
-                                                <input
-                                                    type="number"
-                                                    step="0.1"
-                                                    value={newData.lead2}
-                                                    onChange={e => setNewData({...newData, lead2: e.target.value})}
-                                                    className="p-1 border rounded w-20"
-                                                    placeholder={selectedWig.leadMeasures[1].dailyTarget}
-                                                />
-                                            </td>
-                                        )}
+                                        {selectedWig.leadMeasures?.map((lead, idx) => {
+                                            const key = `lead${idx + 1}`;
+                                            return (
+                                                <td key={lead.id} className="px-4 py-3">
+                                                    <input
+                                                        type="number"
+                                                        step="0.1"
+                                                        value={newData[key]}
+                                                        onChange={e => setNewData({...newData, [key]: e.target.value})}
+                                                        className="p-1 border rounded w-20"
+                                                        placeholder={lead.dailyTarget}
+                                                        autoFocus={idx === 0}
+                                                    />
+                                                </td>
+                                            );
+                                        })}
                                         <td className="px-4 py-3 text-center">
                                             <button onClick={handleCreate} className="p-1 text-green-600 hover:bg-green-50 rounded mr-1">
                                                 <Check size={16} />
                                             </button>
-                                            <button onClick={() => { setCreatingDate(null); setNewData({ date: '', dayOfWeek: '', lead1: '', lead2: '' }); }} className="p-1 text-gray-600 hover:bg-gray-100 rounded">
+                                            <button onClick={() => { setCreatingDate(null); setNewData({ date: '', dayOfWeek: '', lead1: '', lead2: '', lead3: '', lead4: '', lead5: '' }); }} className="p-1 text-gray-600 hover:bg-gray-100 rounded">
                                                 <X size={16} />
                                             </button>
                                         </td>
@@ -750,12 +739,9 @@ const Scoreboard = ({ wigs, selectedWigId, onSelectWig, onTodayDataChange }) => 
                                     <>
                                         <td className="px-4 py-3">{item.date}</td>
                                         <td className="px-4 py-3">{item.dayOfWeek}</td>
-                                        {selectedWig.leadMeasures?.[0] && (
-                                            <td className="px-4 py-3">{item.lead1 ?? 0}</td>
-                                        )}
-                                        {selectedWig.leadMeasures?.[1] && (
-                                            <td className="px-4 py-3">{item.lead2 ?? 0}</td>
-                                        )}
+                                        {selectedWig.leadMeasures?.map((lead, idx) => (
+                                            <td key={lead.id} className="px-4 py-3">{item[`lead${idx + 1}`] ?? 0}</td>
+                                        ))}
                                         <td className="px-4 py-3 text-center">
                                             {item.isEmpty ? (
                                                 // 빈 데이터: 클릭하면 인라인 입력 모드
@@ -766,7 +752,10 @@ const Scoreboard = ({ wigs, selectedWigId, onSelectWig, onTodayDataChange }) => 
                                                             date: item.date,
                                                             dayOfWeek: item.dayOfWeek,
                                                             lead1: '',
-                                                            lead2: ''
+                                                            lead2: '',
+                                                            lead3: '',
+                                                            lead4: '',
+                                                            lead5: ''
                                                         });
                                                     }}
                                                     className="px-2 py-1 text-xs text-blue-600 hover:bg-blue-50 rounded"

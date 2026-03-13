@@ -6,7 +6,7 @@ import authApi from '../api/authApi';
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
 
 // OAuth 전용 URL (프록시 불가, 직접 연결 필요)
-const OAUTH_BASE_URL = 'http://3.27.147.163.nip.io:8080';
+const OAUTH_BASE_URL = import.meta.env.VITE_OAUTH_BASE_URL || 'http://localhost:8080';
 
 /**
  * 로그인/회원가입 페이지
