@@ -4,6 +4,7 @@ import commitmentApi from '../api/commitmentApi';
 import weeklyDataApi from '../api/weeklyDataApi';
 import dailyDataApi from '../api/dailyDataApi';
 import milestoneApi from '../api/milestoneApi';
+import { getLocalToday, calculateWeeks, getCurrentWeek } from '../utils/weekUtils';
 
 const Dashboard = ({ wigs, selectedWigId, onSelectWig, onWigChange, refreshKey }) => {
     const [commitments, setCommitments] = useState([]);
@@ -14,11 +15,8 @@ const Dashboard = ({ wigs, selectedWigId, onSelectWig, onWigChange, refreshKey }
 
     const selectedWig = wigs.find(w => w.id === selectedWigId) || wigs[0];
 
-    // 로컬 시간 기준 오늘 날짜
-    const getLocalToday = () => {
-        const now = new Date();
-        return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-    };
+    // ★ 동적 주차 계산 (하드코딩 제거)
+    const currentWeek = getCurrentWeek(selectedWig);
 
     // 선택된 WIG 바뀌면 로컬 마일스톤 동기화
     useEffect(() => {
@@ -26,13 +24,12 @@ const Dashboard = ({ wigs, selectedWigId, onSelectWig, onWigChange, refreshKey }
             setLocalMilestones(selectedWig.milestones);
         }
     }, [selectedWig?.id, selectedWig?.milestones]);
-    const currentWeek = 'W5'; // 실제로는 현재 주차 계산 필요
 
     useEffect(() => {
         if (selectedWigId) {
             loadData();
         }
-    }, [selectedWigId, refreshKey]);
+    }, [selectedWigId, refreshKey, currentWeek]);
 
     const loadData = async () => {
         try {
@@ -45,10 +42,10 @@ const Dashboard = ({ wigs, selectedWigId, onSelectWig, onWigChange, refreshKey }
             setCommitments(commitmentsData);
             setWeeklyData(weeklyDataResult);
 
-            // 모든 주차에서 오늘 날짜의 일간 데이터 찾기
+            // ★ 동적 주차 목록으로 오늘 일간 데이터 찾기 (하드코딩 제거)
             try {
                 const today = getLocalToday();
-                const weeks = ['W1', 'W2', 'W3', 'W4', 'W5', 'W6', 'W7', 'W8'];
+                const weeks = calculateWeeks(selectedWig);
 
                 let foundTodayData = null;
                 for (const week of weeks) {
@@ -186,45 +183,45 @@ const Dashboard = ({ wigs, selectedWigId, onSelectWig, onWigChange, refreshKey }
                 </div>
 
                 <div className="mt-4">
-                    <div className="flex justify-between text-sm mb-1">
-                        <span>진행률</span>
-                        <span>{lagProgress}%</span>
+                    <div className="flex items-center justify-between mb-2">
+                        <span className="text-lg font-semibold">
+                            현재: {getCurrentLagValue()}
+                        </span>
+                        <span className="text-lg font-bold">{lagProgress}%</span>
                     </div>
-                    <div className="w-full bg-white bg-opacity-30 rounded-full h-3">
+                    <div className="w-full bg-white bg-opacity-30 rounded-full h-4">
                         <div
-                            className="bg-white h-3 rounded-full transition-all duration-500"
-                            style={{ width: `${lagProgress}%` }}
+                            className="bg-white rounded-full h-4 transition-all duration-500"
+                            style={{ width: `${Math.min(100, lagProgress)}%` }}
                         />
                     </div>
                 </div>
             </div>
 
-            {/* 통계 카드 */}
+            {/* 요약 카드들 */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="bg-white p-6 rounded-lg shadow border-l-4 border-blue-500">
+                <div className="bg-white p-4 rounded-lg shadow">
                     <div className="flex items-center justify-between">
                         <div>
-                            <p className="text-gray-600 text-sm">현재 상태</p>
-                            <p className="text-2xl font-bold text-gray-800">{getCurrentLagValue()}</p>
-                        </div>
-                        <Target className="text-blue-500" size={32} />
-                    </div>
-                </div>
-
-                <div className="bg-white p-6 rounded-lg shadow border-l-4 border-green-500">
-                    <div className="flex items-center justify-between">
-                        <div>
-                            <p className="text-gray-600 text-sm">진행률</p>
+                            <p className="text-sm text-gray-600">Lag 진행률</p>
                             <p className="text-2xl font-bold text-gray-800">{lagProgress}%</p>
                         </div>
-                        <TrendingUp className="text-green-500" size={32} />
+                        <TrendingUp className="text-blue-500" size={32} />
                     </div>
                 </div>
-
-                <div className="bg-white p-6 rounded-lg shadow border-l-4 border-purple-500">
+                <div className="bg-white p-4 rounded-lg shadow">
                     <div className="flex items-center justify-between">
                         <div>
-                            <p className="text-gray-600 text-sm">이번 주 약속</p>
+                            <p className="text-sm text-gray-600">현재 주차</p>
+                            <p className="text-2xl font-bold text-gray-800">{currentWeek}</p>
+                        </div>
+                        <Target className="text-green-500" size={32} />
+                    </div>
+                </div>
+                <div className="bg-white p-4 rounded-lg shadow">
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <p className="text-sm text-gray-600">이번 주 약속 ({currentWeek})</p>
                             <p className="text-2xl font-bold text-gray-800">
                                 {completedCommitments}/{totalCommitments}
                             </p>
@@ -298,7 +295,7 @@ const Dashboard = ({ wigs, selectedWigId, onSelectWig, onWigChange, refreshKey }
                                                 )}
                                             </div>
                                         ) : (
-                                            // 기존 방식
+                                            // 기존 방식 바
                                             <div className="w-full bg-gray-200 rounded-full h-3">
                                                 <div
                                                     className={`h-3 rounded-full transition-all duration-500 ${

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, X } from 'lucide-react';
 import commitmentApi from '../api/commitmentApi';
+import { getCurrentWeek, getPreviousWeek } from '../utils/weekUtils';
 
 const Commitments = ({ wigs, selectedWigId, onSelectWig }) => {
     const [commitments, setCommitments] = useState([]);
@@ -9,14 +10,16 @@ const Commitments = ({ wigs, selectedWigId, onSelectWig }) => {
     const [loading, setLoading] = useState(false);
 
     const selectedWig = wigs.find(w => w.id === selectedWigId) || wigs[0];
-    const currentWeek = 'W5';
-    const previousWeek = 'W4';
+
+    // ★ 동적 주차 계산 (하드코딩 제거)
+    const currentWeek = getCurrentWeek(selectedWig);
+    const previousWeek = getPreviousWeek(currentWeek);
 
     useEffect(() => {
         if (selectedWigId) {
             loadCommitments();
         }
-    }, [selectedWigId]);
+    }, [selectedWigId, currentWeek]);
 
     const loadCommitments = async () => {
         try {
@@ -24,8 +27,12 @@ const Commitments = ({ wigs, selectedWigId, onSelectWig }) => {
             const current = await commitmentApi.getByWigIdAndWeek(selectedWigId, currentWeek);
             setCommitments(current);
 
-            const previous = await commitmentApi.getByWigIdAndWeek(selectedWigId, previousWeek);
-            setPreviousCommitments(previous);
+            if (previousWeek) {
+                const previous = await commitmentApi.getByWigIdAndWeek(selectedWigId, previousWeek);
+                setPreviousCommitments(previous);
+            } else {
+                setPreviousCommitments([]);
+            }
         } catch (err) {
             console.error('Commitments 로드 실패:', err);
         } finally {
@@ -162,30 +169,32 @@ const Commitments = ({ wigs, selectedWigId, onSelectWig }) => {
                 </div>
             </div>
 
-            <div className="bg-white p-6 rounded-lg shadow">
-                <h3 className="text-xl font-bold mb-4">지난 주 약속 ({previousWeek})</h3>
-                <div className="space-y-2">
-                    {previousCommitments.length === 0 ? (
-                        <p className="text-gray-500 text-center py-4">지난 주 약속이 없습니다.</p>
-                    ) : (
-                        previousCommitments.map(commitment => (
-                            <div
-                                key={commitment.id}
-                                className={`p-3 rounded ${
-                                    commitment.completed ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-800'
-                                }`}
-                            >
-                                <div className="flex items-center justify-between">
-                                    <span>{commitment.text}</span>
-                                    <span className="text-sm">
+            {previousWeek && (
+                <div className="bg-white p-6 rounded-lg shadow">
+                    <h3 className="text-xl font-bold mb-4">지난 주 약속 ({previousWeek})</h3>
+                    <div className="space-y-2">
+                        {previousCommitments.length === 0 ? (
+                            <p className="text-gray-500 text-center py-4">지난 주 약속이 없습니다.</p>
+                        ) : (
+                            previousCommitments.map(commitment => (
+                                <div
+                                    key={commitment.id}
+                                    className={`p-3 rounded ${
+                                        commitment.completed ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-800'
+                                    }`}
+                                >
+                                    <div className="flex items-center justify-between">
+                                        <span>{commitment.text}</span>
+                                        <span className="text-sm">
                     {commitment.completed ? '✓ 완료' : '✗ 미완료'}
                   </span>
+                                    </div>
                                 </div>
-                            </div>
-                        ))
-                    )}
+                            ))
+                        )}
+                    </div>
                 </div>
-            </div>
+            )}
         </div>
     );
 };
