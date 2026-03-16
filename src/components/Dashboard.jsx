@@ -278,14 +278,20 @@ const Dashboard = ({ wigs, selectedWigId, onSelectWig, onWigChange, refreshKey }
                                     </div>
                                     <div className="flex-1">
                                         {isMinimize ? (
-                                            // 예산 방식 바
+                                            // 예산 방식 무지개 바 (MINIMIZE: 적을수록 좋음)
                                             <div className="w-full bg-gray-200 rounded-full h-3 relative overflow-hidden">
                                                 <div
-                                                    className={`h-3 rounded-full transition-all duration-500 ${
-                                                        isOver ? 'bg-red-500' :
-                                                            barProgress >= 80 ? 'bg-yellow-500' : 'bg-green-500'
-                                                    }`}
-                                                    style={{ width: `${Math.min(100, barProgress)}%` }}
+                                                    className="h-3 rounded-full transition-all duration-500"
+                                                    style={{
+                                                        width: `${Math.min(100, barProgress)}%`,
+                                                        background: isOver ? '#ef4444'
+                                                            : barProgress >= 80 ? '#f97316'
+                                                                : barProgress >= 60 ? '#eab308'
+                                                                    : barProgress >= 40 ? '#22c55e'
+                                                                        : barProgress >= 20 ? '#3b82f6'
+                                                                            : barProgress > 0 ? '#a855f7'
+                                                                                : '#a855f7'
+                                                    }}
                                                 />
                                                 {isOver && (
                                                     <div
@@ -295,14 +301,22 @@ const Dashboard = ({ wigs, selectedWigId, onSelectWig, onWigChange, refreshKey }
                                                 )}
                                             </div>
                                         ) : (
-                                            // 기존 방식 바
+                                            // 무지개 그라데이션 바 (MAXIMIZE)
                                             <div className="w-full bg-gray-200 rounded-full h-3">
                                                 <div
-                                                    className={`h-3 rounded-full transition-all duration-500 ${
-                                                        isGood ? 'bg-green-500' :
-                                                            barProgress >= 70 ? 'bg-blue-500' : 'bg-yellow-500'
-                                                    }`}
-                                                    style={{ width: `${Math.min(100, barProgress)}%` }}
+                                                    className="h-3 rounded-full transition-all duration-500"
+                                                    style={{
+                                                        width: `${Math.min(100, barProgress)}%`,
+                                                        background: barProgress >= 100
+                                                            ? 'linear-gradient(to right, #ef4444, #f97316, #eab308, #22c55e, #3b82f6, #6366f1, #a855f7)'
+                                                            : barProgress >= 85 ? '#a855f7'
+                                                                : barProgress >= 70 ? '#6366f1'
+                                                                    : barProgress >= 55 ? '#3b82f6'
+                                                                        : barProgress >= 40 ? '#22c55e'
+                                                                            : barProgress >= 25 ? '#eab308'
+                                                                                : barProgress >= 10 ? '#f97316'
+                                                                                    : '#ef4444'
+                                                    }}
                                                 />
                                             </div>
                                         )}
@@ -374,7 +388,7 @@ const Dashboard = ({ wigs, selectedWigId, onSelectWig, onWigChange, refreshKey }
                             ))}
                     </div>
                 </div>
-            )}
+            )}add
         </div>
     );
 };
