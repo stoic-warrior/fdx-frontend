@@ -337,7 +337,7 @@ const Dashboard = ({ wigs, selectedWigId, onSelectWig, onWigChange, refreshKey }
                                             <div
                                                 key={lead.id}
                                                 className={`rounded-xl p-4 text-center relative transition-all duration-500 ${
-                                                    isOver ? 'animate-pulse' : ''
+                                                    ''
                                                 }`}
                                                 style={{
                                                     backgroundColor: grade.bg,
