@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Target, TrendingUp, CheckSquare, Award, Activity } from 'lucide-react';
+import { Target, TrendingUp, CheckSquare, Award, Activity, AlertTriangle, XCircle } from 'lucide-react';
 import commitmentApi from '../api/commitmentApi';
 import weeklyDataApi from '../api/weeklyDataApi';
 import dailyDataApi from '../api/dailyDataApi';
@@ -15,10 +15,8 @@ const Dashboard = ({ wigs, selectedWigId, onSelectWig, onWigChange, refreshKey }
 
     const selectedWig = wigs.find(w => w.id === selectedWigId) || wigs[0];
 
-    // ★ 동적 주차 계산 (하드코딩 제거)
     const currentWeek = getCurrentWeek(selectedWig);
 
-    // 선택된 WIG 바뀌면 로컬 마일스톤 동기화
     useEffect(() => {
         if (selectedWig?.milestones) {
             setLocalMilestones(selectedWig.milestones);
@@ -42,7 +40,6 @@ const Dashboard = ({ wigs, selectedWigId, onSelectWig, onWigChange, refreshKey }
             setCommitments(commitmentsData);
             setWeeklyData(weeklyDataResult);
 
-            // ★ 동적 주차 목록으로 오늘 일간 데이터 찾기 (하드코딩 제거)
             try {
                 const today = getLocalToday();
                 const weeks = calculateWeeks(selectedWig);
@@ -70,7 +67,6 @@ const Dashboard = ({ wigs, selectedWigId, onSelectWig, onWigChange, refreshKey }
         }
     };
 
-    // Lag 진행률 계산
     const getLagProgress = () => {
         if (!selectedWig) return 0;
 
@@ -96,7 +92,6 @@ const Dashboard = ({ wigs, selectedWigId, onSelectWig, onWigChange, refreshKey }
         }
     };
 
-    // 현재 Lag 값
     const getCurrentLagValue = () => {
         if (!selectedWig) return '-';
 
@@ -115,12 +110,10 @@ const Dashboard = ({ wigs, selectedWigId, onSelectWig, onWigChange, refreshKey }
         }
     };
 
-    // 마일스톤 토글 (로컬 상태만 업데이트, 스크롤 유지)
     const handleMilestoneToggle = async (milestoneId) => {
         try {
             const result = await milestoneApi.toggleCompleted(milestoneId);
 
-            // 로컬 상태만 업데이트 (전체 리로드 안 함)
             setLocalMilestones(prev =>
                 prev.map(m =>
                     m.id === milestoneId
@@ -159,7 +152,7 @@ const Dashboard = ({ wigs, selectedWigId, onSelectWig, onWigChange, refreshKey }
                 ))}
             </div>
 
-            {/* WIG 헤더 (이게 Lag Measure) */}
+            {/* WIG 헤더 (Lag Measure) */}
             <div className="bg-gradient-to-r from-blue-500 to-purple-600 text-white p-6 rounded-lg shadow-lg">
                 <div className="flex items-start justify-between mb-2">
                     <div>
@@ -231,125 +224,192 @@ const Dashboard = ({ wigs, selectedWigId, onSelectWig, onWigChange, refreshKey }
                 </div>
             </div>
 
-            {/* Lead Measures - 일간 기준, 길고 얇은 형태 */}
-            {selectedWig.leadMeasures && selectedWig.leadMeasures.length > 0 && (
-                <div className="bg-white p-4 rounded-lg shadow">
-                    <h3 className="font-semibold text-gray-800 mb-4 flex items-center gap-2">
-                        <Activity className="text-blue-500" size={18} />
-                        Lead Measures (선행지표) - 오늘
-                    </h3>
-                    <div className="space-y-3">
-                        {selectedWig.leadMeasures.map((lead, idx) => {
-                            // 동적으로 lead1~lead5에서 값 가져오기
-                            const leadKey = `lead${idx + 1}`;
-                            const dailyActual = todayDailyData
-                                ? (todayDailyData[leadKey] || 0)
-                                : 0;
+            {/* ═══ Lead Measures 분리 렌더링 (MAXIMIZE: 바 / MINIMIZE: 카드) ═══ */}
+            {selectedWig.leadMeasures && selectedWig.leadMeasures.length > 0 && (() => {
+                const maximizeLeads = [];
+                const minimizeLeads = [];
 
-                            const isMinimize = lead.goalDirection === 'MINIMIZE';
+                selectedWig.leadMeasures.forEach((lead, idx) => {
+                    const leadKey = `lead${idx + 1}`;
+                    const dailyActual = todayDailyData ? (todayDailyData[leadKey] || 0) : 0;
+                    const enriched = { ...lead, leadKey, dailyActual, idx };
 
-                            // goalDirection에 따른 계산
-                            let barProgress = 0;
-                            let isGood = false;
-                            let isOver = false;
-                            let diff = 0;
+                    if (lead.goalDirection === 'MINIMIZE') {
+                        minimizeLeads.push(enriched);
+                    } else {
+                        maximizeLeads.push(enriched);
+                    }
+                });
 
-                            if (lead.dailyTarget) {
-                                if (isMinimize) {
-                                    // 예산 방식: 사용량 / 한도
-                                    barProgress = (dailyActual / lead.dailyTarget) * 100;
-                                    isGood = dailyActual <= lead.dailyTarget;
-                                    isOver = dailyActual > lead.dailyTarget;
-                                    diff = lead.dailyTarget - dailyActual; // 양수면 여유, 음수면 초과
-                                } else {
-                                    // 높을수록 좋음 (기본)
-                                    barProgress = ((dailyActual || 0) / lead.dailyTarget * 100);
-                                    isGood = barProgress >= 100;
-                                }
-                            }
+                return (
+                    <>
+                        {/* ━━━ MAXIMIZE: 기존 무지개 프로그레스바 ━━━ */}
+                        {maximizeLeads.length > 0 && (
+                            <div className="bg-white p-4 rounded-lg shadow">
+                                <h3 className="font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                                    <Activity className="text-blue-500" size={18} />
+                                    Lead Measures (높을수록 좋음) - 오늘
+                                </h3>
+                                <div className="space-y-3">
+                                    {maximizeLeads.map((lead) => {
+                                        const barProgress = lead.dailyTarget
+                                            ? ((lead.dailyActual || 0) / lead.dailyTarget * 100)
+                                            : 0;
+                                        const isGood = barProgress >= 100;
 
-                            return (
-                                <div key={lead.id} className="flex items-center gap-4">
-                                    <div className="w-36 flex-shrink-0">
-                                        <span className="font-medium text-gray-700">{lead.name}</span>
-                                        <span className={`text-xs ml-1 ${isMinimize ? 'text-orange-500' : 'text-green-500'}`}>
-                                            {isMinimize ? '↓' : '↑'}
-                                        </span>
-                                    </div>
-                                    <div className="flex-1">
-                                        {isMinimize ? (
-                                            // 예산 방식 무지개 바 (MINIMIZE: 적을수록 좋음)
-                                            <div className="w-full bg-gray-200 rounded-full h-3 relative overflow-hidden">
-                                                <div
-                                                    className="h-3 rounded-full transition-all duration-500"
-                                                    style={{
-                                                        width: `${Math.min(100, barProgress)}%`,
-                                                        background: isOver ? '#ef4444'
-                                                            : barProgress >= 80 ? '#f97316'
-                                                                : barProgress >= 60 ? '#eab308'
-                                                                    : barProgress >= 40 ? '#22c55e'
-                                                                        : barProgress >= 20 ? '#3b82f6'
-                                                                            : barProgress > 0 ? '#a855f7'
-                                                                                : '#a855f7'
-                                                    }}
-                                                />
+                                        return (
+                                            <div key={lead.id} className="flex items-center gap-4">
+                                                <div className="w-36 flex-shrink-0">
+                                                    <span className="font-medium text-gray-700">{lead.name}</span>
+                                                    <span className="text-xs ml-1 text-green-500">↑</span>
+                                                </div>
+                                                <div className="flex-1">
+                                                    <div className="w-full bg-gray-200 rounded-full h-3">
+                                                        <div
+                                                            className="h-3 rounded-full transition-all duration-500"
+                                                            style={{
+                                                                width: `${Math.min(100, barProgress)}%`,
+                                                                background: barProgress >= 100
+                                                                    ? 'linear-gradient(to right, #ef4444, #f97316, #eab308, #22c55e, #3b82f6, #6366f1, #a855f7)'
+                                                                    : barProgress >= 85 ? '#a855f7'
+                                                                        : barProgress >= 70 ? '#6366f1'
+                                                                            : barProgress >= 55 ? '#3b82f6'
+                                                                                : barProgress >= 40 ? '#22c55e'
+                                                                                    : barProgress >= 25 ? '#eab308'
+                                                                                        : barProgress >= 10 ? '#f97316'
+                                                                                            : '#ef4444'
+                                                            }}
+                                                        />
+                                                    </div>
+                                                </div>
+                                                <div className="w-32 text-right flex-shrink-0">
+                                                    <span className={`text-sm ${isGood ? 'text-green-600 font-medium' : 'text-gray-600'}`}>
+                                                        {lead.dailyActual || 0} {lead.unit}
+                                                    </span>
+                                                    <span className="text-xs text-gray-400 ml-1">
+                                                        ({barProgress.toFixed(0)}%)
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* ━━━ MINIMIZE: 미세먼지 스타일 카드 (미만/주의/초과) ━━━ */}
+                        {minimizeLeads.length > 0 && (
+                            <div className="bg-white p-4 rounded-lg shadow">
+                                <h3 className="font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                                    <Activity className="text-orange-500" size={18} />
+                                    Lead Measures (낮을수록 좋음) - 오늘
+                                </h3>
+                                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                                    {minimizeLeads.map((lead) => {
+                                        const target = lead.dailyTarget || 1;
+                                        const ratio = lead.dailyActual / target;
+                                        const isOver = ratio > 1;
+                                        const isNearLimit = !isOver && ratio >= 0.9;
+
+                                        // 3단계: 미만/주의/초과 — 초과만 빨강 카드, 나머지는 초록
+                                        const grade = isOver
+                                            ? {
+                                                label: '초과',
+                                                bg: '#FCEBEB', text: '#501313', sub: '#A32D2D',
+                                                badge: '#F7C1C1', badgeText: '#791F1F',
+                                                border: '#E24B4A',
+                                            }
+                                            : isNearLimit
+                                                ? {
+                                                    label: '주의',
+                                                    bg: '#EAF3DE', text: '#173404', sub: '#3B6D11',
+                                                    badge: '#FAC775', badgeText: '#633806',
+                                                    border: '#EF9F27',
+                                                }
+                                                : {
+                                                    label: '미만',
+                                                    bg: '#EAF3DE', text: '#173404', sub: '#3B6D11',
+                                                    badge: '#C0DD97', badgeText: '#27500A',
+                                                    border: 'transparent',
+                                                };
+
+                                        return (
+                                            <div
+                                                key={lead.id}
+                                                className={`rounded-xl p-4 text-center relative transition-all duration-500 ${
+                                                    isOver ? 'animate-pulse' : ''
+                                                }`}
+                                                style={{
+                                                    backgroundColor: grade.bg,
+                                                    border: grade.border !== 'transparent' ? `2px solid ${grade.border}` : '2px solid transparent',
+                                                }}
+                                            >
+                                                {/* 주의: 주황 동그라미 느낌표 */}
+                                                {isNearLimit && (
+                                                    <div
+                                                        className="absolute -top-2 -right-2 w-7 h-7 rounded-full flex items-center justify-center shadow-md"
+                                                        style={{ backgroundColor: '#EF9F27' }}
+                                                    >
+                                                        <span className="text-white text-sm font-bold leading-none">!</span>
+                                                    </div>
+                                                )}
+
+                                                {/* 초과: 빨강 동그라미 X */}
                                                 {isOver && (
                                                     <div
-                                                        className="absolute top-0 right-0 h-3 bg-red-600 animate-pulse"
-                                                        style={{ width: `${Math.min(30, barProgress - 100)}%` }}
-                                                    />
+                                                        className="absolute -top-2 -right-2 w-7 h-7 rounded-full flex items-center justify-center shadow-md"
+                                                        style={{ backgroundColor: '#E24B4A' }}
+                                                    >
+                                                        <XCircle size={16} className="text-white" />
+                                                    </div>
                                                 )}
-                                            </div>
-                                        ) : (
-                                            // 무지개 그라데이션 바 (MAXIMIZE)
-                                            <div className="w-full bg-gray-200 rounded-full h-3">
-                                                <div
-                                                    className="h-3 rounded-full transition-all duration-500"
-                                                    style={{
-                                                        width: `${Math.min(100, barProgress)}%`,
-                                                        background: barProgress >= 100
-                                                            ? 'linear-gradient(to right, #ef4444, #f97316, #eab308, #22c55e, #3b82f6, #6366f1, #a855f7)'
-                                                            : barProgress >= 85 ? '#a855f7'
-                                                                : barProgress >= 70 ? '#6366f1'
-                                                                    : barProgress >= 55 ? '#3b82f6'
-                                                                        : barProgress >= 40 ? '#22c55e'
-                                                                            : barProgress >= 25 ? '#eab308'
-                                                                                : barProgress >= 10 ? '#f97316'
-                                                                                    : '#ef4444'
-                                                    }}
-                                                />
-                                            </div>
-                                        )}
-                                    </div>
-                                    <div className="w-32 text-right flex-shrink-0">
-                                        {isMinimize ? (
-                                            // 예산 방식 표시
-                                            <>
-                                                <span className={`text-sm font-medium ${isOver ? 'text-red-600' : 'text-gray-700'}`}>
-                                                    {dailyActual || 0} / {lead.dailyTarget} {lead.unit}
-                                                </span>
-                                                <div className={`text-xs ${isGood ? 'text-green-600' : 'text-red-600'}`}>
-                                                    {diff >= 0 ? `여유 ${diff.toFixed(0)}` : `초과 ${Math.abs(diff).toFixed(0)}`}
+
+                                                {/* 지표명 */}
+                                                <p
+                                                    className="text-xs font-medium mb-1 truncate"
+                                                    style={{ color: grade.sub }}
+                                                    title={lead.name}
+                                                >
+                                                    {lead.name}
+                                                </p>
+
+                                                {/* 현재 수치 (크게) */}
+                                                <p
+                                                    className="text-2xl font-bold leading-tight"
+                                                    style={{ color: grade.text }}
+                                                >
+                                                    {lead.dailyActual || 0}
+                                                </p>
+
+                                                {/* 한도 */}
+                                                <p
+                                                    className="text-xs mt-1"
+                                                    style={{ color: grade.sub }}
+                                                >
+                                                    / {target} {lead.unit}
+                                                </p>
+
+                                                {/* 등급 뱃지 */}
+                                                <div className="mt-2 inline-block">
+                                                    <span
+                                                        className="text-xs font-semibold px-3 py-0.5 rounded-full"
+                                                        style={{
+                                                            backgroundColor: grade.badge,
+                                                            color: grade.badgeText,
+                                                        }}
+                                                    >
+                                                        {grade.label}
+                                                    </span>
                                                 </div>
-                                            </>
-                                        ) : (
-                                            // 기존 방식 표시
-                                            <>
-                                                <span className={`text-sm ${isGood ? 'text-green-600 font-medium' : 'text-gray-600'}`}>
-                                                    {dailyActual || 0} {lead.unit}
-                                                </span>
-                                                <span className="text-xs text-gray-400 ml-1">
-                                                    ({barProgress.toFixed(0)}%)
-                                                </span>
-                                            </>
-                                        )}
-                                    </div>
+                                            </div>
+                                        );
+                                    })}
                                 </div>
-                            );
-                        })}
-                    </div>
-                </div>
-            )}
+                            </div>
+                        )}
+                    </>
+                );
+            })()}
 
             {/* 마일스톤 체크박스 (STATE 타입만) */}
             {selectedWig.measureType === 'STATE' && localMilestones && localMilestones.length > 0 && (
@@ -388,7 +448,7 @@ const Dashboard = ({ wigs, selectedWigId, onSelectWig, onWigChange, refreshKey }
                             ))}
                     </div>
                 </div>
-            )}add
+            )}
         </div>
     );
 };
