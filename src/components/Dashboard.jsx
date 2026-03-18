@@ -1,69 +1,55 @@
-import React, { useState, useEffect } from 'react';
-import { Target, TrendingUp, CheckSquare, Award, Activity, AlertTriangle, XCircle } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { Target, TrendingUp, CheckSquare, Award, Activity, Flame, XCircle } from 'lucide-react';
 import commitmentApi from '../api/commitmentApi';
 import weeklyDataApi from '../api/weeklyDataApi';
 import dailyDataApi from '../api/dailyDataApi';
 import milestoneApi from '../api/milestoneApi';
-import { getLocalToday, calculateWeeks, getCurrentWeek } from '../utils/weekUtils';
+import { getLocalToday, getCurrentWeek } from '../utils/weekUtils';
 
-const Dashboard = ({ wigs, selectedWigId, onSelectWig, onWigChange, refreshKey }) => {
+const Dashboard = ({ wigs, selectedWigId, onSelectWig, refreshKey }) => {
     const [commitments, setCommitments] = useState([]);
     const [weeklyData, setWeeklyData] = useState([]);
     const [todayDailyData, setTodayDailyData] = useState(null);
-    const [loading, setLoading] = useState(false);
+    const [allDailyData, setAllDailyData] = useState([]);
     const [localMilestones, setLocalMilestones] = useState([]);
 
     const selectedWig = wigs.find(w => w.id === selectedWigId) || wigs[0];
-
     const currentWeek = getCurrentWeek(selectedWig);
 
     useEffect(() => {
         if (selectedWig?.milestones) {
             setLocalMilestones(selectedWig.milestones);
+        } else {
+            setLocalMilestones([]);
         }
     }, [selectedWig?.id, selectedWig?.milestones]);
 
     useEffect(() => {
-        if (selectedWigId) {
-            loadData();
-        }
+        if (!selectedWigId) return;
+        loadData();
     }, [selectedWigId, refreshKey, currentWeek]);
 
     const loadData = async () => {
         try {
-            setLoading(true);
-
-            const [commitmentsData, weeklyDataResult] = await Promise.all([
+            const [commitmentsData, weeklyDataResult, allDailyDataResult] = await Promise.all([
                 commitmentApi.getByWigIdAndWeek(selectedWigId, currentWeek),
-                weeklyDataApi.getByWigId(selectedWigId)
+                weeklyDataApi.getByWigId(selectedWigId),
+                dailyDataApi.getByWigId(selectedWigId)
             ]);
-            setCommitments(commitmentsData);
-            setWeeklyData(weeklyDataResult);
 
-            try {
-                const today = getLocalToday();
-                const weeks = calculateWeeks(selectedWig);
+            setCommitments(commitmentsData || []);
+            setWeeklyData(weeklyDataResult || []);
+            setAllDailyData(allDailyDataResult || []);
 
-                let foundTodayData = null;
-                for (const week of weeks) {
-                    const dailyResult = await dailyDataApi.getByWigIdAndWeek(selectedWigId, week);
-                    if (dailyResult && dailyResult.length > 0) {
-                        const todayData = dailyResult.find(d => d.date === today);
-                        if (todayData) {
-                            foundTodayData = todayData;
-                            break;
-                        }
-                    }
-                }
-                setTodayDailyData(foundTodayData);
-            } catch (err) {
-                console.error('일간 데이터 로드 실패:', err);
-                setTodayDailyData(null);
-            }
+            const today = getLocalToday();
+            const todayRecord = (allDailyDataResult || []).find(item => item.date === today) || null;
+            setTodayDailyData(todayRecord);
         } catch (err) {
-            console.error('데이터 로드 실패:', err);
-        } finally {
-            setLoading(false);
+            console.error('Dashboard load failed:', err);
+            setCommitments([]);
+            setWeeklyData([]);
+            setAllDailyData([]);
+            setTodayDailyData(null);
         }
     };
 
@@ -71,71 +57,119 @@ const Dashboard = ({ wigs, selectedWigId, onSelectWig, onWigChange, refreshKey }
         if (!selectedWig) return 0;
 
         if (selectedWig.measureType === 'STATE') {
-            if (!localMilestones || localMilestones.length === 0) return 0;
+            if (!localMilestones.length) return 0;
             const completed = localMilestones.filter(m => m.completed).length;
             return ((completed / localMilestones.length) * 100).toFixed(1);
-        } else {
-            const latest = weeklyData.length > 0
-                ? weeklyData.sort((a, b) => b.week.localeCompare(a.week))[0]
-                : null;
-            if (!latest || !latest.actual) return 0;
-
-            const from = parseFloat(selectedWig.fromX) || 0;
-            const to = parseFloat(selectedWig.toY) || 0;
-            const current = latest.actual;
-
-            if (from === to) return 100;
-            if (from > to) {
-                return Math.min(100, Math.max(0, ((from - current) / (from - to)) * 100)).toFixed(1);
-            }
-            return Math.min(100, Math.max(0, ((current - from) / (to - from)) * 100)).toFixed(1);
         }
+
+        const latest = weeklyData.length > 0
+            ? [...weeklyData].sort((a, b) => b.week.localeCompare(a.week))[0]
+            : null;
+
+        if (!latest || latest.actual === null || latest.actual === undefined) return 0;
+
+        const from = Number(selectedWig.fromX) || 0;
+        const to = Number(selectedWig.toY) || 0;
+        const current = Number(latest.actual) || 0;
+
+        if (from === to) return 100;
+        if (from > to) {
+            return Math.min(100, Math.max(0, ((from - current) / (from - to)) * 100)).toFixed(1);
+        }
+
+        return Math.min(100, Math.max(0, ((current - from) / (to - from)) * 100)).toFixed(1);
     };
 
     const getCurrentLagValue = () => {
         if (!selectedWig) return '-';
 
         if (selectedWig.measureType === 'STATE') {
-            const completed = localMilestones?.filter(m => m.completed).length || 0;
-            const total = localMilestones?.length || 0;
-            return `${completed}/${total} 완료`;
-        } else {
-            const latest = weeklyData.length > 0
-                ? weeklyData.sort((a, b) => b.week.localeCompare(a.week))[0]
-                : null;
-            if (latest?.actual) {
-                return `${latest.actual} ${selectedWig.unit}`;
-            }
-            return `${selectedWig.fromX} ${selectedWig.unit}`;
+            const completed = localMilestones.filter(m => m.completed).length;
+            return `${completed}/${localMilestones.length} done`;
         }
+
+        const latest = weeklyData.length > 0
+            ? [...weeklyData].sort((a, b) => b.week.localeCompare(a.week))[0]
+            : null;
+
+        if (latest?.actual !== null && latest?.actual !== undefined) {
+            return `${latest.actual} ${selectedWig.unit || ''}`.trim();
+        }
+
+        return `${selectedWig.fromX} ${selectedWig.unit || ''}`.trim();
     };
 
     const handleMilestoneToggle = async (milestoneId) => {
         try {
             const result = await milestoneApi.toggleCompleted(milestoneId);
-
             setLocalMilestones(prev =>
-                prev.map(m =>
-                    m.id === milestoneId
-                        ? { ...m, completed: result.completed }
-                        : m
-                )
+                prev.map(m => (m.id === milestoneId ? { ...m, completed: result.completed } : m))
             );
         } catch (err) {
-            console.error('마일스톤 토글 실패:', err);
-            alert('마일스톤 상태 변경에 실패했습니다.');
+            console.error('Milestone toggle failed:', err);
+            alert('Failed to update milestone state.');
         }
+    };
+
+    const isLeadAchieved = (lead, actualValue) => {
+        const target = Number(lead.dailyTarget);
+        if (Number.isNaN(target)) return false;
+
+        const actual = Number(actualValue || 0);
+        return lead.goalDirection === 'MINIMIZE'
+            ? actual <= target
+            : actual >= target;
+    };
+
+    const getLeadStreak = (leadKey, lead) => {
+        if (!allDailyData.length) return 0;
+
+        const dataByDate = new Map(
+            allDailyData.map(item => [item.date, Number(item[leadKey] || 0)])
+        );
+
+        let streak = 0;
+        const cursor = new Date(getLocalToday());
+
+        while (true) {
+            const dateKey = `${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, '0')}-${String(cursor.getDate()).padStart(2, '0')}`;
+            if (!dataByDate.has(dateKey) || !isLeadAchieved(lead, dataByDate.get(dateKey))) {
+                break;
+            }
+
+            streak += 1;
+            cursor.setDate(cursor.getDate() - 1);
+        }
+
+        return streak;
     };
 
     const lagProgress = getLagProgress();
     const completedCommitments = commitments.filter(c => c.completed).length;
     const totalCommitments = commitments.length;
+    const enrichedLeads = (selectedWig?.leadMeasures || []).map((lead, idx) => {
+        const leadKey = `lead${idx + 1}`;
+        const dailyActual = Number(todayDailyData?.[leadKey] || 0);
+        const streak = getLeadStreak(leadKey, lead);
+
+        return {
+            ...lead,
+            leadKey,
+            dailyActual,
+            streak,
+            achievedToday: isLeadAchieved(lead, dailyActual)
+        };
+    });
+    const achievedLeadCount = enrichedLeads.filter(lead => lead.achievedToday).length;
+    const bestLeadStreak = enrichedLeads.reduce((max, lead) => Math.max(max, lead.streak), 0);
 
     if (!selectedWig) return null;
 
+    const maximizeLeads = enrichedLeads.filter(lead => lead.goalDirection !== 'MINIMIZE');
+    const minimizeLeads = enrichedLeads.filter(lead => lead.goalDirection === 'MINIMIZE');
+
     return (
         <div className="space-y-6">
-            {/* WIG 선택 탭 */}
             <div className="flex space-x-4 overflow-x-auto pb-2">
                 {wigs.map(wig => (
                     <button
@@ -152,7 +186,6 @@ const Dashboard = ({ wigs, selectedWigId, onSelectWig, onWigChange, refreshKey }
                 ))}
             </div>
 
-            {/* WIG 헤더 (Lag Measure) */}
             <div className="bg-gradient-to-r from-blue-500 to-purple-600 text-white p-6 rounded-lg shadow-lg">
                 <div className="flex items-start justify-between mb-2">
                     <div>
@@ -161,42 +194,39 @@ const Dashboard = ({ wigs, selectedWigId, onSelectWig, onWigChange, refreshKey }
                             <span className="px-3 py-1 bg-white bg-opacity-20 rounded-full">
                                 {selectedWig.fromX}
                             </span>
-                            <span>→</span>
+                            <span>to</span>
                             <span className="px-3 py-1 bg-white bg-opacity-20 rounded-full">
                                 {selectedWig.toY}
                             </span>
                         </div>
-                        <p className="mt-2 text-sm opacity-90">목표일: {selectedWig.byWhen}</p>
+                        <p className="mt-2 text-sm opacity-90">Target date {selectedWig.byWhen}</p>
                     </div>
                     <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
                         selectedWig.measureType === 'NUMERIC' ? 'bg-green-400' : 'bg-yellow-400'
                     } text-gray-900`}>
-                        {selectedWig.measureType === 'NUMERIC' ? '수치형' : '상태형'}
+                        {selectedWig.measureType === 'NUMERIC' ? 'NUMERIC' : 'STATE'}
                     </span>
                 </div>
 
                 <div className="mt-4">
                     <div className="flex items-center justify-between mb-2">
-                        <span className="text-lg font-semibold">
-                            현재: {getCurrentLagValue()}
-                        </span>
+                        <span className="text-lg font-semibold">Current: {getCurrentLagValue()}</span>
                         <span className="text-lg font-bold">{lagProgress}%</span>
                     </div>
                     <div className="w-full bg-white bg-opacity-30 rounded-full h-4">
                         <div
                             className="bg-white rounded-full h-4 transition-all duration-500"
-                            style={{ width: `${Math.min(100, lagProgress)}%` }}
+                            style={{ width: `${Math.min(100, Number(lagProgress))}%` }}
                         />
                     </div>
                 </div>
             </div>
 
-            {/* 요약 카드들 */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
                 <div className="bg-white p-4 rounded-lg shadow">
                     <div className="flex items-center justify-between">
                         <div>
-                            <p className="text-sm text-gray-600">Lag 진행률</p>
+                            <p className="text-sm text-gray-600">Lag progress</p>
                             <p className="text-2xl font-bold text-gray-800">{lagProgress}%</p>
                         </div>
                         <TrendingUp className="text-blue-500" size={32} />
@@ -205,7 +235,7 @@ const Dashboard = ({ wigs, selectedWigId, onSelectWig, onWigChange, refreshKey }
                 <div className="bg-white p-4 rounded-lg shadow">
                     <div className="flex items-center justify-between">
                         <div>
-                            <p className="text-sm text-gray-600">현재 주차</p>
+                            <p className="text-sm text-gray-600">Current week</p>
                             <p className="text-2xl font-bold text-gray-800">{currentWeek}</p>
                         </div>
                         <Target className="text-green-500" size={32} />
@@ -214,7 +244,7 @@ const Dashboard = ({ wigs, selectedWigId, onSelectWig, onWigChange, refreshKey }
                 <div className="bg-white p-4 rounded-lg shadow">
                     <div className="flex items-center justify-between">
                         <div>
-                            <p className="text-sm text-gray-600">이번 주 약속 ({currentWeek})</p>
+                            <p className="text-sm text-gray-600">Commitments ({currentWeek})</p>
                             <p className="text-2xl font-bold text-gray-800">
                                 {completedCommitments}/{totalCommitments}
                             </p>
@@ -222,204 +252,195 @@ const Dashboard = ({ wigs, selectedWigId, onSelectWig, onWigChange, refreshKey }
                         <CheckSquare className="text-purple-500" size={32} />
                     </div>
                 </div>
+                <div className="bg-white p-4 rounded-lg shadow">
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <p className="text-sm text-gray-600">Lead streak</p>
+                            <p className="text-2xl font-bold text-gray-800">{bestLeadStreak}d</p>
+                            <p className="text-xs text-gray-500 mt-1">Today hit {achievedLeadCount}/{enrichedLeads.length}</p>
+                        </div>
+                        <Flame className="text-orange-500" size={32} />
+                    </div>
+                </div>
             </div>
 
-            {/* ═══ Lead Measures 분리 렌더링 (MAXIMIZE: 바 / MINIMIZE: 카드) ═══ */}
-            {selectedWig.leadMeasures && selectedWig.leadMeasures.length > 0 && (() => {
-                const maximizeLeads = [];
-                const minimizeLeads = [];
+            {maximizeLeads.length > 0 && (
+                <div className="bg-white p-4 rounded-lg shadow">
+                    <h3 className="font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                        <Activity className="text-blue-500" size={18} />
+                        Lead Measures (maximize) - today
+                    </h3>
+                    <div className="space-y-3">
+                        {maximizeLeads.map((lead) => {
+                            const barProgress = lead.dailyTarget
+                                ? ((lead.dailyActual || 0) / lead.dailyTarget) * 100
+                                : 0;
+                            const isGood = barProgress >= 100;
 
-                selectedWig.leadMeasures.forEach((lead, idx) => {
-                    const leadKey = `lead${idx + 1}`;
-                    const dailyActual = todayDailyData ? (todayDailyData[leadKey] || 0) : 0;
-                    const enriched = { ...lead, leadKey, dailyActual, idx };
-
-                    if (lead.goalDirection === 'MINIMIZE') {
-                        minimizeLeads.push(enriched);
-                    } else {
-                        maximizeLeads.push(enriched);
-                    }
-                });
-
-                return (
-                    <>
-                        {/* ━━━ MAXIMIZE: 기존 무지개 프로그레스바 ━━━ */}
-                        {maximizeLeads.length > 0 && (
-                            <div className="bg-white p-4 rounded-lg shadow">
-                                <h3 className="font-semibold text-gray-800 mb-4 flex items-center gap-2">
-                                    <Activity className="text-blue-500" size={18} />
-                                    Lead Measures (높을수록 좋음) - 오늘
-                                </h3>
-                                <div className="space-y-3">
-                                    {maximizeLeads.map((lead) => {
-                                        const barProgress = lead.dailyTarget
-                                            ? ((lead.dailyActual || 0) / lead.dailyTarget * 100)
-                                            : 0;
-                                        const isGood = barProgress >= 100;
-
-                                        return (
-                                            <div key={lead.id} className="flex items-center gap-4">
-                                                <div className="w-36 flex-shrink-0">
-                                                    <span className="font-medium text-gray-700">{lead.name}</span>
-                                                    <span className="text-xs ml-1 text-green-500">↑</span>
-                                                </div>
-                                                <div className="flex-1">
-                                                    <div className="w-full bg-gray-200 rounded-full h-3">
-                                                        <div
-                                                            className="h-3 rounded-full transition-all duration-500"
-                                                            style={{
-                                                                width: `${Math.min(100, barProgress)}%`,
-                                                                background: barProgress >= 100
-                                                                    ? 'linear-gradient(to right, #ef4444, #f97316, #eab308, #22c55e, #3b82f6, #6366f1, #a855f7)'
-                                                                    : barProgress >= 85 ? '#a855f7'
-                                                                        : barProgress >= 70 ? '#6366f1'
-                                                                            : barProgress >= 55 ? '#3b82f6'
-                                                                                : barProgress >= 40 ? '#22c55e'
-                                                                                    : barProgress >= 25 ? '#eab308'
-                                                                                        : barProgress >= 10 ? '#f97316'
-                                                                                            : '#ef4444'
-                                                            }}
-                                                        />
-                                                    </div>
-                                                </div>
-                                                <div className="w-32 text-right flex-shrink-0">
-                                                    <span className={`text-sm ${isGood ? 'text-green-600 font-medium' : 'text-gray-600'}`}>
-                                                        {lead.dailyActual || 0} {lead.unit}
-                                                    </span>
-                                                    <span className="text-xs text-gray-400 ml-1">
-                                                        ({barProgress.toFixed(0)}%)
-                                                    </span>
-                                                </div>
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-                            </div>
-                        )}
-
-                        {/* ━━━ MINIMIZE: 미세먼지 스타일 카드 (미만/주의/초과) ━━━ */}
-                        {minimizeLeads.length > 0 && (
-                            <div className="bg-white p-4 rounded-lg shadow">
-                                <h3 className="font-semibold text-gray-800 mb-4 flex items-center gap-2">
-                                    <Activity className="text-orange-500" size={18} />
-                                    Lead Measures (낮을수록 좋음) - 오늘
-                                </h3>
-                                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-                                    {minimizeLeads.map((lead) => {
-                                        const target = lead.dailyTarget || 1;
-                                        const ratio = lead.dailyActual / target;
-                                        const isOver = ratio > 1;
-                                        const isNearLimit = !isOver && ratio >= 0.9;
-
-                                        // 3단계: 미만/주의/초과 — 초과만 빨강 카드, 나머지는 초록
-                                        const grade = isOver
-                                            ? {
-                                                label: '초과',
-                                                bg: '#FCEBEB', text: '#501313', sub: '#A32D2D',
-                                                badge: '#F7C1C1', badgeText: '#791F1F',
-                                                border: '#E24B4A',
-                                            }
-                                            : isNearLimit
-                                                ? {
-                                                    label: '주의',
-                                                    bg: '#EAF3DE', text: '#173404', sub: '#3B6D11',
-                                                    badge: '#FAC775', badgeText: '#633806',
-                                                    border: '#EF9F27',
-                                                }
-                                                : {
-                                                    label: '미만',
-                                                    bg: '#EAF3DE', text: '#173404', sub: '#3B6D11',
-                                                    badge: '#C0DD97', badgeText: '#27500A',
-                                                    border: 'transparent',
-                                                };
-
-                                        return (
+                            return (
+                                <div key={lead.id} className="flex items-center gap-4">
+                                    <div className="w-36 flex-shrink-0">
+                                        <span className="font-medium text-gray-700">{lead.name}</span>
+                                        <span className="text-xs ml-1 text-green-500">up</span>
+                                    </div>
+                                    <div className="flex-1">
+                                        <div className="w-full bg-gray-200 rounded-full h-3">
                                             <div
-                                                key={lead.id}
-                                                className={`rounded-xl p-4 text-center relative transition-all duration-500 ${
-                                                    ''
-                                                }`}
+                                                className="h-3 rounded-full transition-all duration-500"
                                                 style={{
-                                                    backgroundColor: grade.bg,
-                                                    border: grade.border !== 'transparent' ? `2px solid ${grade.border}` : '2px solid transparent',
+                                                    width: `${Math.min(100, barProgress)}%`,
+                                                    background: barProgress >= 100
+                                                        ? 'linear-gradient(to right, #ef4444, #f97316, #eab308, #22c55e, #3b82f6, #6366f1, #a855f7)'
+                                                        : barProgress >= 85 ? '#a855f7'
+                                                            : barProgress >= 70 ? '#6366f1'
+                                                                : barProgress >= 55 ? '#3b82f6'
+                                                                    : barProgress >= 40 ? '#22c55e'
+                                                                        : barProgress >= 25 ? '#eab308'
+                                                                            : barProgress >= 10 ? '#f97316'
+                                                                                : '#ef4444'
                                                 }}
-                                            >
-                                                {/* 주의: 주황 동그라미 느낌표 */}
-                                                {isNearLimit && (
-                                                    <div
-                                                        className="absolute -top-2 -right-2 w-7 h-7 rounded-full flex items-center justify-center shadow-md"
-                                                        style={{ backgroundColor: '#EF9F27' }}
-                                                    >
-                                                        <span className="text-white text-sm font-bold leading-none">!</span>
-                                                    </div>
-                                                )}
-
-                                                {/* 초과: 빨강 동그라미 X */}
-                                                {isOver && (
-                                                    <div
-                                                        className="absolute -top-2 -right-2 w-7 h-7 rounded-full flex items-center justify-center shadow-md"
-                                                        style={{ backgroundColor: '#E24B4A' }}
-                                                    >
-                                                        <XCircle size={16} className="text-white" />
-                                                    </div>
-                                                )}
-
-                                                {/* 지표명 */}
-                                                <p
-                                                    className="text-xs font-medium mb-1 truncate"
-                                                    style={{ color: grade.sub }}
-                                                    title={lead.name}
-                                                >
-                                                    {lead.name}
-                                                </p>
-
-                                                {/* 현재 수치 (크게) */}
-                                                <p
-                                                    className="text-2xl font-bold leading-tight"
-                                                    style={{ color: grade.text }}
-                                                >
-                                                    {lead.dailyActual || 0}
-                                                </p>
-
-                                                {/* 한도 */}
-                                                <p
-                                                    className="text-xs mt-1"
-                                                    style={{ color: grade.sub }}
-                                                >
-                                                    / {target} {lead.unit}
-                                                </p>
-
-                                                {/* 등급 뱃지 */}
-                                                <div className="mt-2 inline-block">
-                                                    <span
-                                                        className="text-xs font-semibold px-3 py-0.5 rounded-full"
-                                                        style={{
-                                                            backgroundColor: grade.badge,
-                                                            color: grade.badgeText,
-                                                        }}
-                                                    >
-                                                        {grade.label}
-                                                    </span>
-                                                </div>
-                                            </div>
-                                        );
-                                    })}
+                                            />
+                                        </div>
+                                    </div>
+                                    <div className="w-32 text-right flex-shrink-0">
+                                        <span className={`text-sm ${isGood ? 'text-green-600 font-medium' : 'text-gray-600'}`}>
+                                            {lead.dailyActual || 0} {lead.unit}
+                                        </span>
+                                        <span className="text-xs text-gray-400 ml-1">
+                                            ({barProgress.toFixed(0)}%)
+                                        </span>
+                                        <div className={`text-xs mt-1 ${lead.achievedToday ? 'text-orange-600 font-semibold' : 'text-gray-400'}`}>
+                                            Streak {lead.streak}d
+                                        </div>
+                                    </div>
                                 </div>
-                            </div>
-                        )}
-                    </>
-                );
-            })()}
+                            );
+                        })}
+                    </div>
+                </div>
+            )}
 
-            {/* 마일스톤 체크박스 (STATE 타입만) */}
-            {selectedWig.measureType === 'STATE' && localMilestones && localMilestones.length > 0 && (
+            {minimizeLeads.length > 0 && (
+                <div className="bg-white p-4 rounded-lg shadow">
+                    <h3 className="font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                        <Activity className="text-orange-500" size={18} />
+                        Lead Measures (minimize) - today
+                    </h3>
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                        {minimizeLeads.map((lead) => {
+                            const target = lead.dailyTarget || 1;
+                            const ratio = lead.dailyActual / target;
+                            const isOver = ratio > 1;
+                            const isNearLimit = !isOver && ratio >= 0.9;
+
+                            const grade = isOver
+                                ? {
+                                    label: 'Over',
+                                    bg: '#FCEBEB',
+                                    text: '#501313',
+                                    sub: '#A32D2D',
+                                    badge: '#F7C1C1',
+                                    badgeText: '#791F1F',
+                                    border: '#E24B4A',
+                                }
+                                : isNearLimit
+                                    ? {
+                                        label: 'Warn',
+                                        bg: '#EAF3DE',
+                                        text: '#173404',
+                                        sub: '#3B6D11',
+                                        badge: '#FAC775',
+                                        badgeText: '#633806',
+                                        border: '#EF9F27',
+                                    }
+                                    : {
+                                        label: 'Safe',
+                                        bg: '#EAF3DE',
+                                        text: '#173404',
+                                        sub: '#3B6D11',
+                                        badge: '#C0DD97',
+                                        badgeText: '#27500A',
+                                        border: 'transparent',
+                                    };
+
+                            return (
+                                <div
+                                    key={lead.id}
+                                    className="rounded-xl p-4 text-center relative transition-all duration-500"
+                                    style={{
+                                        backgroundColor: grade.bg,
+                                        border: grade.border !== 'transparent' ? `2px solid ${grade.border}` : '2px solid transparent',
+                                    }}
+                                >
+                                    {isNearLimit && (
+                                        <div
+                                            className="absolute -top-2 -right-2 w-7 h-7 rounded-full flex items-center justify-center shadow-md"
+                                            style={{ backgroundColor: '#EF9F27' }}
+                                        >
+                                            <span className="text-white text-sm font-bold leading-none">!</span>
+                                        </div>
+                                    )}
+
+                                    {isOver && (
+                                        <div
+                                            className="absolute -top-2 -right-2 w-7 h-7 rounded-full flex items-center justify-center shadow-md"
+                                            style={{ backgroundColor: '#E24B4A' }}
+                                        >
+                                            <XCircle size={16} className="text-white" />
+                                        </div>
+                                    )}
+
+                                    <p
+                                        className="text-xs font-medium mb-1 truncate"
+                                        style={{ color: grade.sub }}
+                                        title={lead.name}
+                                    >
+                                        {lead.name}
+                                    </p>
+                                    <p
+                                        className="text-2xl font-bold leading-tight"
+                                        style={{ color: grade.text }}
+                                    >
+                                        {lead.dailyActual || 0}
+                                    </p>
+                                    <p
+                                        className="text-xs mt-1"
+                                        style={{ color: grade.sub }}
+                                    >
+                                        / {target} {lead.unit}
+                                    </p>
+                                    <div className="mt-2 inline-block">
+                                        <span
+                                            className="text-xs font-semibold px-3 py-0.5 rounded-full"
+                                            style={{
+                                                backgroundColor: grade.badge,
+                                                color: grade.badgeText,
+                                            }}
+                                        >
+                                            {grade.label}
+                                        </span>
+                                    </div>
+                                    <p
+                                        className="text-xs mt-2 font-semibold"
+                                        style={{ color: lead.achievedToday ? '#C2410C' : grade.sub }}
+                                    >
+                                        Streak {lead.streak}d
+                                    </p>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+            )}
+
+            {selectedWig.measureType === 'STATE' && localMilestones.length > 0 && (
                 <div className="bg-white p-6 rounded-lg shadow">
                     <h3 className="text-xl font-bold mb-4 flex items-center">
                         <Award className="mr-2 text-yellow-500" size={24} />
-                        마일스톤 진행상황
+                        Milestones
                     </h3>
                     <div className="space-y-3">
-                        {localMilestones
+                        {[...localMilestones]
                             .sort((a, b) => a.orderIndex - b.orderIndex)
                             .map((milestone, idx) => (
                                 <div key={milestone.id} className="flex items-center space-x-4 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
@@ -442,7 +463,7 @@ const Dashboard = ({ wigs, selectedWigId, onSelectWig, onWigChange, refreshKey }
                                         </div>
                                     </div>
                                     {milestone.completed && (
-                                        <span className="text-green-600 font-semibold">✓</span>
+                                        <span className="text-green-600 font-semibold">Done</span>
                                     )}
                                 </div>
                             ))}
