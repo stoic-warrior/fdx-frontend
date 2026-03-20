@@ -62,6 +62,15 @@ const dailyDataApi = {
   delete: async (id) => {
     await apiClient.delete(`/api/daily-data/${id}`);
   },
+
+  /**
+   * 특정 WIG의 연속달성 streak 조회
+   * @param {number} wigId - WIG ID
+   */
+  getStreak: async (wigId) => {
+    const response = await apiClient.get(`/api/wigs/${wigId}/streak`);
+    return response.data;
+  },
 };
 
 export default dailyDataApi;

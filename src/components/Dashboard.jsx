@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Target, TrendingUp, CheckSquare, Award, Activity, AlertTriangle, XCircle } from 'lucide-react';
+import { Target, Flame, CheckSquare, Award, Activity, AlertTriangle, XCircle } from 'lucide-react';
 import commitmentApi from '../api/commitmentApi';
 import weeklyDataApi from '../api/weeklyDataApi';
 import dailyDataApi from '../api/dailyDataApi';
@@ -10,6 +10,7 @@ const Dashboard = ({ wigs, selectedWigId, onSelectWig, onWigChange, refreshKey }
     const [commitments, setCommitments] = useState([]);
     const [weeklyData, setWeeklyData] = useState([]);
     const [todayDailyData, setTodayDailyData] = useState(null);
+    const [streakData, setStreakData] = useState(null);
     const [loading, setLoading] = useState(false);
     const [localMilestones, setLocalMilestones] = useState([]);
 
@@ -33,12 +34,14 @@ const Dashboard = ({ wigs, selectedWigId, onSelectWig, onWigChange, refreshKey }
         try {
             setLoading(true);
 
-            const [commitmentsData, weeklyDataResult] = await Promise.all([
+            const [commitmentsData, weeklyDataResult, streakResult] = await Promise.all([
                 commitmentApi.getByWigIdAndWeek(selectedWigId, currentWeek),
-                weeklyDataApi.getByWigId(selectedWigId)
+                weeklyDataApi.getByWigId(selectedWigId),
+                dailyDataApi.getStreak(selectedWigId).catch(() => null)
             ]);
             setCommitments(commitmentsData);
             setWeeklyData(weeklyDataResult);
+            setStreakData(streakResult);
 
             try {
                 const today = getLocalToday();
@@ -196,10 +199,12 @@ const Dashboard = ({ wigs, selectedWigId, onSelectWig, onWigChange, refreshKey }
                 <div className="bg-white p-4 rounded-lg shadow">
                     <div className="flex items-center justify-between">
                         <div>
-                            <p className="text-sm text-gray-600">Lag 진행률</p>
-                            <p className="text-2xl font-bold text-gray-800">{lagProgress}%</p>
+                            <p className="text-sm text-gray-600">연속 달성</p>
+                            <p className="text-2xl font-bold text-gray-800">
+                                {streakData ? streakData.overallStreak : 0}일
+                            </p>
                         </div>
-                        <TrendingUp className="text-blue-500" size={32} />
+                        <Flame className={streakData?.overallStreak > 0 ? 'text-orange-500' : 'text-gray-300'} size={32} />
                     </div>
                 </div>
                 <div className="bg-white p-4 rounded-lg shadow">
@@ -256,6 +261,8 @@ const Dashboard = ({ wigs, selectedWigId, onSelectWig, onWigChange, refreshKey }
                                             ? ((lead.dailyActual || 0) / lead.dailyTarget * 100)
                                             : 0;
                                         const isGood = barProgress >= 100;
+                                        const leadStreak = streakData?.leadMeasureStreaks?.find(s => s.leadMeasureId === lead.id);
+                                        const streak = leadStreak?.currentStreak || 0;
 
                                         return (
                                             <div key={lead.id} className="flex items-center gap-4">
@@ -290,6 +297,11 @@ const Dashboard = ({ wigs, selectedWigId, onSelectWig, onWigChange, refreshKey }
                                                         ({barProgress.toFixed(0)}%)
                                                     </span>
                                                 </div>
+                                                <div className="w-14 flex-shrink-0 flex items-center justify-end gap-1">
+                                                    <span className={`text-sm font-semibold ${streak > 0 ? 'text-orange-500' : 'text-gray-300'}`}>
+                                                        🔥{streak}
+                                                    </span>
+                                                </div>
                                             </div>
                                         );
                                     })}
@@ -310,6 +322,8 @@ const Dashboard = ({ wigs, selectedWigId, onSelectWig, onWigChange, refreshKey }
                                         const ratio = lead.dailyActual / target;
                                         const isOver = ratio > 1;
                                         const isNearLimit = !isOver && ratio >= 0.9;
+                                        const leadStreak = streakData?.leadMeasureStreaks?.find(s => s.leadMeasureId === lead.id);
+                                        const streak = leadStreak?.currentStreak || 0;
 
                                         // 3단계: 미만/주의/초과 — 초과만 빨강 카드, 나머지는 초록
                                         const grade = isOver
@@ -389,8 +403,8 @@ const Dashboard = ({ wigs, selectedWigId, onSelectWig, onWigChange, refreshKey }
                                                     / {target} {lead.unit}
                                                 </p>
 
-                                                {/* 등급 뱃지 */}
-                                                <div className="mt-2 inline-block">
+                                                {/* 등급 뱃지 + streak */}
+                                                <div className="mt-2 flex items-center justify-center gap-2">
                                                     <span
                                                         className="text-xs font-semibold px-3 py-0.5 rounded-full"
                                                         style={{
@@ -399,6 +413,9 @@ const Dashboard = ({ wigs, selectedWigId, onSelectWig, onWigChange, refreshKey }
                                                         }}
                                                     >
                                                         {grade.label}
+                                                    </span>
+                                                    <span className={`text-xs font-semibold ${streak > 0 ? 'text-orange-500' : 'text-gray-300'}`}>
+                                                        🔥{streak}
                                                     </span>
                                                 </div>
                                             </div>
