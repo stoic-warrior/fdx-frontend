@@ -1,70 +1,34 @@
 import React, { useState } from 'react';
-import { Mail, Lock, User, Eye, EyeOff } from 'lucide-react';
 import authApi from '../api/authApi';
-
-// 백엔드 URL
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
 
 // OAuth 전용 URL (프록시 불가, 직접 연결 필요)
 const OAUTH_BASE_URL = import.meta.env.VITE_OAUTH_BASE_URL || 'http://localhost:8080';
 
-/**
- * 로그인/회원가입 페이지
- * 일반 로그인 + OAuth (Google, Kakao, Naver)
- */
 const LoginPage = ({ onLoginSuccess }) => {
-    const [isLogin, setIsLogin] = useState(true);
-    const [showPassword, setShowPassword] = useState(false);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
 
-    const [formData, setFormData] = useState({
-        email: '',
-        password: '',
-        name: ''
-    });
-
-    // ⭐ OAuth 로그인 URL
     const handleOAuthLogin = (provider) => {
-        const url = `${OAUTH_BASE_URL}/oauth2/authorization/${provider}`;
-        console.log('OAuth URL:', url);
-        window.location.href = url;
+        window.location.href = `${OAUTH_BASE_URL}/oauth2/authorization/${provider}`;
     };
 
-    // 일반 로그인/회원가입
-    const handleSubmit = async (e) => {
-        e.preventDefault();
+    const handleTestLogin = async () => {
         setLoading(true);
         setError('');
-
         try {
-            if (isLogin) {
-                const response = await authApi.login({
-                    email: formData.email,
-                    password: formData.password
-                });
-                localStorage.setItem('accessToken', response.accessToken);
-                localStorage.setItem('user', JSON.stringify({
-                    email: response.email,
-                    name: response.name,
-                    provider: 'LOCAL'
-                }));
-                onLoginSuccess(response);
-            } else {
-                await authApi.register(formData);
-                setIsLogin(true);
-                setError('');
-                alert('회원가입 성공! 로그인해주세요.');
-            }
+            const response = await authApi.login({
+                email: 'test@example.com',
+                password: 'password123'
+            });
+            localStorage.setItem('accessToken', response.accessToken);
+            localStorage.setItem('user', JSON.stringify({
+                email: response.email,
+                name: response.name,
+                provider: 'LOCAL'
+            }));
+            onLoginSuccess(response);
         } catch (err) {
-            if (err.response?.data?.fieldErrors) {
-                const messages = Object.values(err.response.data.fieldErrors).join('\n');
-                setError(messages);
-            } else if (err.response?.data?.message) {
-                setError(err.response.data.message);
-            } else {
-                setError(err.message || '처리 중 오류가 발생했습니다.');
-            }
+            setError(err.response?.data?.message || err.message || '오류가 발생했습니다.');
         } finally {
             setLoading(false);
         }
@@ -81,9 +45,7 @@ const LoginPage = ({ onLoginSuccess }) => {
 
                 {/* 폼 카드 */}
                 <div className="bg-white rounded-2xl shadow-xl p-8">
-                    <h2 className="text-2xl font-bold text-center mb-6">
-                        {isLogin ? '로그인' : '회원가입'}
-                    </h2>
+                    <h2 className="text-2xl font-bold text-center mb-6">로그인</h2>
 
                     {/* 에러 메시지 */}
                     {error && (
@@ -92,8 +54,8 @@ const LoginPage = ({ onLoginSuccess }) => {
                         </div>
                     )}
 
-                    {/* ⭐ 소셜 로그인 버튼 */}
-                    <div className="space-y-3 mb-6">
+                    {/* 소셜 로그인 버튼 */}
+                    <div className="space-y-3">
                         {/* Google */}
                         <button
                             onClick={() => handleOAuthLogin('google')}
@@ -127,94 +89,18 @@ const LoginPage = ({ onLoginSuccess }) => {
                             <span className="text-white font-bold text-lg">N</span>
                             <span className="text-white font-medium">네이버로 계속하기</span>
                         </button>
-                    </div>
 
-                    {/* 구분선 */}
-                    <div className="relative my-6">
-                        <div className="absolute inset-0 flex items-center">
-                            <div className="w-full border-t border-gray-200"></div>
-                        </div>
-                        <div className="relative flex justify-center text-sm">
-                            <span className="px-4 bg-white text-gray-500">또는 이메일로</span>
-                        </div>
-                    </div>
-
-                    {/* 일반 로그인 폼 */}
-                    <form onSubmit={handleSubmit} className="space-y-4">
-                        {/* 이름 (회원가입 시만) */}
-                        {!isLogin && (
-                            <div className="relative">
-                                <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-                                <input
-                                    type="text"
-                                    placeholder="이름"
-                                    value={formData.name}
-                                    onChange={(e) => setFormData({...formData, name: e.target.value})}
-                                    className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                                    required
-                                    minLength={2}
-                                    maxLength={50}
-                                />
-                            </div>
-                        )}
-
-                        {/* 이메일 */}
-                        <div className="relative">
-                            <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-                            <input
-                                type="email"
-                                placeholder="이메일"
-                                value={formData.email}
-                                onChange={(e) => setFormData({...formData, email: e.target.value})}
-                                className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                                required
-                            />
-                        </div>
-
-                        {/* 비밀번호 */}
-                        <div className="relative">
-                            <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-                            <input
-                                type={showPassword ? 'text' : 'password'}
-                                placeholder="비밀번호"
-                                value={formData.password}
-                                onChange={(e) => setFormData({...formData, password: e.target.value})}
-                                className="w-full pl-10 pr-12 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                                required
-                                minLength={8}
-                            />
+                        {/* 개발환경 전용: 테스트 계정 로그인 */}
+                        {import.meta.env.DEV && (
                             <button
-                                type="button"
-                                onClick={() => setShowPassword(!showPassword)}
-                                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                                onClick={handleTestLogin}
+                                disabled={loading}
+                                className="w-full py-3 px-4 border border-dashed border-gray-400 rounded-lg text-gray-500 hover:bg-gray-50 disabled:opacity-50 transition text-sm"
                             >
-                                {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                                {loading ? '로그인 중...' : '[개발] 테스트 계정으로 입장'}
                             </button>
-                        </div>
-
-                        {/* 제출 버튼 */}
-                        <button
-                            type="submit"
-                            disabled={loading}
-                            className="w-full py-3 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
-                        >
-                            {loading ? '처리 중...' : (isLogin ? '로그인' : '회원가입')}
-                        </button>
-                    </form>
-
-                    {/* 로그인/회원가입 전환 */}
-                    <p className="text-center mt-6 text-gray-600">
-                        {isLogin ? '계정이 없으신가요?' : '이미 계정이 있으신가요?'}
-                        <button
-                            onClick={() => {
-                                setIsLogin(!isLogin);
-                                setError('');
-                            }}
-                            className="ml-2 text-indigo-600 font-medium hover:underline"
-                        >
-                            {isLogin ? '회원가입' : '로그인'}
-                        </button>
-                    </p>
+                        )}
+                    </div>
                 </div>
             </div>
         </div>
