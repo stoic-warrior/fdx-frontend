@@ -120,14 +120,18 @@ const Scoreboard = ({ wigs, selectedWigId, onSelectWig, onTodayDataChange }) => 
         return weeks.includes(currentWeek) ? currentWeek : weeks[weeks.length - 1];
     };
 
-    // 빈 날짜를 0으로 채워서 반환 (WIG 생성일 ~ 오늘)
-    const fillMissingDates = (weekData, week) => {
+    // 빈 날짜를 채워서 반환 (WIG 생성일 ~ 오늘)
+    // MAXIMIZE 지표: 빈 날 → 0, MINIMIZE 지표: 빈 날 → null (connectNulls로 연결)
+    const fillMissingDates = (weekData, week, leadMeasures = []) => {
         const today = getLocalToday();
         const startDate = new Date(Math.max(new Date(wigCreatedDate), getWeekStartDate(week)));
         const endDate = new Date(Math.min(new Date(today), getWeekEndDate(week)));
 
         const filledData = [];
         const existingDates = new Set(weekData.map(d => d.date));
+
+        const defaultVal = (idx) =>
+            leadMeasures[idx]?.goalDirection === 'MINIMIZE' ? null : 0;
 
         for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
             const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -136,23 +140,23 @@ const Scoreboard = ({ wigs, selectedWigId, onSelectWig, onTodayDataChange }) => 
                 const item = weekData.find(item => item.date === dateStr);
                 filledData.push({
                     ...item,
-                    lead1: item.lead1 ?? 0,
-                    lead2: item.lead2 ?? 0,
-                    lead3: item.lead3 ?? 0,
-                    lead4: item.lead4 ?? 0,
-                    lead5: item.lead5 ?? 0,
+                    lead1: item.lead1 ?? defaultVal(0),
+                    lead2: item.lead2 ?? defaultVal(1),
+                    lead3: item.lead3 ?? defaultVal(2),
+                    lead4: item.lead4 ?? defaultVal(3),
+                    lead5: item.lead5 ?? defaultVal(4),
                 });
             } else {
                 filledData.push({
                     id: `empty-${dateStr}`,
                     date: dateStr,
                     dayOfWeek: ['일', '월', '화', '수', '목', '금', '토'][d.getDay()],
-                    lead1: 0,
-                    lead2: 0,
-                    lead3: 0,
-                    lead4: 0,
-                    lead5: 0,
-                    isEmpty: true  // 빈 데이터 표시
+                    lead1: defaultVal(0),
+                    lead2: defaultVal(1),
+                    lead3: defaultVal(2),
+                    lead4: defaultVal(3),
+                    lead5: defaultVal(4),
+                    isEmpty: true
                 });
             }
         }
@@ -384,7 +388,7 @@ const Scoreboard = ({ wigs, selectedWigId, onSelectWig, onTodayDataChange }) => 
 
     if (!selectedWig) return null;
 
-    const currentDailyData = fillMissingDates(dailyData[selectedWeek] || [], selectedWeek);
+    const currentDailyData = fillMissingDates(dailyData[selectedWeek] || [], selectedWeek, selectedWig.leadMeasures || []);
 
     return (
         <div className="space-y-6">
@@ -473,7 +477,7 @@ const Scoreboard = ({ wigs, selectedWigId, onSelectWig, onTodayDataChange }) => 
                 {selectedWig.leadMeasures?.map((lead, idx) => {
                     const chartKey = `lead${idx + 1}`;
                     const timeView = chartTimeViews[chartKey] || 'weekly';
-                    const dataToShow = timeView === 'weekly' ? weeklyChartData : fillMissingDates(dailyData[selectedWeek] || [], selectedWeek);
+                    const dataToShow = timeView === 'weekly' ? weeklyChartData : fillMissingDates(dailyData[selectedWeek] || [], selectedWeek, selectedWig.leadMeasures || []);
                     const xKey = timeView === 'weekly' ? 'week' : 'dayOfWeek';
                     const targetValue = timeView === 'weekly' ? lead.weeklyTarget : lead.dailyTarget;
 
@@ -518,7 +522,7 @@ const Scoreboard = ({ wigs, selectedWigId, onSelectWig, onTodayDataChange }) => 
                                         <YAxis domain={[0, dataMax => Math.max(dataMax, parseFloat(targetValue || 0) * 1.1)]} />
                                         <Tooltip />
                                         <ReferenceLine y={targetValue} stroke="#ef4444" strokeDasharray="5 5" />
-                                        <Line type="monotone" dataKey={chartKey} stroke={["#10b981", "#f59e0b", "#3b82f6", "#ef4444", "#8b5cf6"][idx]} strokeWidth={3} name={lead.name} />
+                                        <Line type="monotone" dataKey={chartKey} stroke={["#10b981", "#f59e0b", "#3b82f6", "#ef4444", "#8b5cf6"][idx]} strokeWidth={3} name={lead.name} connectNulls={lead.goalDirection === 'MINIMIZE'} />
                                     </LineChart>
                                 ) : (
                                     <BarChart data={dataToShow}>
