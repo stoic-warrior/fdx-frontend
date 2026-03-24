@@ -225,14 +225,21 @@ const Scoreboard = ({ wigs, selectedWigId, onSelectWig, onTodayDataChange }) => 
             const weekDailyData = dailyData[week] || [];
             const weeklyData = weeklyActual[week];
 
-            // lead는 일간 합산 (동적으로 lead1~lead5)
+            // lead는 일간 합산 (MINIMIZE 지표는 데이터 없는 주 → null로 처리)
             const leadSums = {};
+            const leadMeasures = selectedWig?.leadMeasures || [];
             for (let i = 1; i <= 5; i++) {
-                leadSums[`lead${i}`] = weekDailyData.reduce((sum, d) => sum + (d[`lead${i}`] || 0), 0);
+                const isMinimize = leadMeasures[i - 1]?.goalDirection === 'MINIMIZE';
+                const hasData = weekDailyData.some(d => d[`lead${i}`] != null);
+                leadSums[`lead${i}`] = (!hasData && isMinimize)
+                    ? null
+                    : weekDailyData.reduce((sum, d) => sum + (d[`lead${i}`] || 0), 0);
             }
 
-            // actual은 주간 데이터에서 직접 가져옴 (없으면 0으로 처리해 그래프 연결 유지)
-            const actual = weeklyData?.actual ?? 0;
+            // actual은 주간 데이터에서 직접 가져옴
+            // MINIMIZE lag(toY < fromX)는 데이터 없는 주 → null (connectNulls로 연결)
+            const lagIsMinimize = parseFloat(selectedWig?.toY) < parseFloat(selectedWig?.fromX);
+            const actual = weeklyData?.actual ?? (lagIsMinimize ? null : 0);
 
             return {
                 week,
@@ -454,7 +461,7 @@ const Scoreboard = ({ wigs, selectedWigId, onSelectWig, onTodayDataChange }) => 
                                     <YAxis domain={[0, dataMax => Math.max(dataMax, parseFloat(selectedWig.toY) * 1.1)]} />
                                     <Tooltip />
                                     <ReferenceLine y={parseFloat(selectedWig.toY)} stroke="#ef4444" strokeDasharray="5 5" label="목표" />
-                                    <Line type="monotone" dataKey="actual" stroke="#3b82f6" strokeWidth={3} name="실제" />
+                                    <Line type="monotone" dataKey="actual" stroke="#3b82f6" strokeWidth={3} name="실제" connectNulls={parseFloat(selectedWig.toY) < parseFloat(selectedWig.fromX)} />
                                 </LineChart>
                             ) : (
                                 <BarChart data={weeklyChartData}>
