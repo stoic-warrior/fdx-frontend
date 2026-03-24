@@ -447,7 +447,7 @@ const Scoreboard = ({ wigs, selectedWigId, onSelectWig, onTodayDataChange }) => 
                                 <LineChart data={weeklyChartData}>
                                     <CartesianGrid strokeDasharray="3 3" />
                                     <XAxis dataKey="week" />
-                                    <YAxis domain={['auto', 'auto']} />
+                                    <YAxis domain={[0, dataMax => Math.max(dataMax, parseFloat(selectedWig.toY) * 1.1)]} />
                                     <Tooltip />
                                     <ReferenceLine y={parseFloat(selectedWig.toY)} stroke="#ef4444" strokeDasharray="5 5" label="목표" />
                                     <Line type="monotone" dataKey="actual" stroke="#3b82f6" strokeWidth={3} name="실제" />
@@ -456,7 +456,7 @@ const Scoreboard = ({ wigs, selectedWigId, onSelectWig, onTodayDataChange }) => 
                                 <BarChart data={weeklyChartData}>
                                     <CartesianGrid strokeDasharray="3 3" />
                                     <XAxis dataKey="week" />
-                                    <YAxis domain={['auto', 'auto']} />
+                                    <YAxis domain={[0, dataMax => Math.max(dataMax, parseFloat(selectedWig.toY) * 1.1)]} />
                                     <Tooltip />
                                     <ReferenceLine y={parseFloat(selectedWig.toY)} stroke="#ef4444" strokeDasharray="5 5" />
                                     <Bar dataKey="actual" fill="#3b82f6" name="실제" />
@@ -515,7 +515,7 @@ const Scoreboard = ({ wigs, selectedWigId, onSelectWig, onTodayDataChange }) => 
                                     <LineChart data={dataToShow}>
                                         <CartesianGrid strokeDasharray="3 3" />
                                         <XAxis dataKey={xKey} />
-                                        <YAxis />
+                                        <YAxis domain={[0, dataMax => Math.max(dataMax, parseFloat(targetValue || 0) * 1.1)]} />
                                         <Tooltip />
                                         <ReferenceLine y={targetValue} stroke="#ef4444" strokeDasharray="5 5" />
                                         <Line type="monotone" dataKey={chartKey} stroke={["#10b981", "#f59e0b", "#3b82f6", "#ef4444", "#8b5cf6"][idx]} strokeWidth={3} name={lead.name} />
@@ -524,7 +524,7 @@ const Scoreboard = ({ wigs, selectedWigId, onSelectWig, onTodayDataChange }) => 
                                     <BarChart data={dataToShow}>
                                         <CartesianGrid strokeDasharray="3 3" />
                                         <XAxis dataKey={xKey} />
-                                        <YAxis />
+                                        <YAxis domain={[0, dataMax => Math.max(dataMax, parseFloat(targetValue || 0) * 1.1)]} />
                                         <Tooltip />
                                         <ReferenceLine y={targetValue} stroke="#ef4444" strokeDasharray="5 5" />
                                         <Bar dataKey={chartKey} fill={["#10b981", "#f59e0b", "#3b82f6", "#ef4444", "#8b5cf6"][idx]} name={lead.name} />
