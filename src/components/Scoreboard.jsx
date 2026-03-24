@@ -133,7 +133,15 @@ const Scoreboard = ({ wigs, selectedWigId, onSelectWig, onTodayDataChange }) => 
             const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
             if (existingDates.has(dateStr)) {
-                filledData.push(weekData.find(item => item.date === dateStr));
+                const item = weekData.find(item => item.date === dateStr);
+                filledData.push({
+                    ...item,
+                    lead1: item.lead1 ?? 0,
+                    lead2: item.lead2 ?? 0,
+                    lead3: item.lead3 ?? 0,
+                    lead4: item.lead4 ?? 0,
+                    lead5: item.lead5 ?? 0,
+                });
             } else {
                 filledData.push({
                     id: `empty-${dateStr}`,
@@ -219,11 +227,8 @@ const Scoreboard = ({ wigs, selectedWigId, onSelectWig, onTodayDataChange }) => 
                 leadSums[`lead${i}`] = weekDailyData.reduce((sum, d) => sum + (d[`lead${i}`] || 0), 0);
             }
 
-            // actual은 주간 데이터에서 직접 가져옴
-            const actual = weeklyData?.actual;
-
-            const allLeadsZero = Object.values(leadSums).every(v => v === 0);
-            if (!actual && allLeadsZero) return null;
+            // actual은 주간 데이터에서 직접 가져옴 (없으면 0으로 처리해 그래프 연결 유지)
+            const actual = weeklyData?.actual ?? 0;
 
             return {
                 week,
@@ -231,7 +236,7 @@ const Scoreboard = ({ wigs, selectedWigId, onSelectWig, onTodayDataChange }) => 
                 ...leadSums,
                 weeklyDataId: weeklyData?.id
             };
-        }).filter(d => d !== null);
+        }).filter(d => weeks.indexOf(d.week) <= weeks.indexOf(getCurrentWeek()));
     };
 
     const weeklyChartData = calculateWeeklyData();
@@ -468,7 +473,7 @@ const Scoreboard = ({ wigs, selectedWigId, onSelectWig, onTodayDataChange }) => 
                 {selectedWig.leadMeasures?.map((lead, idx) => {
                     const chartKey = `lead${idx + 1}`;
                     const timeView = chartTimeViews[chartKey] || 'weekly';
-                    const dataToShow = timeView === 'weekly' ? weeklyChartData : (dailyData[selectedWeek] || []);
+                    const dataToShow = timeView === 'weekly' ? weeklyChartData : fillMissingDates(dailyData[selectedWeek] || [], selectedWeek);
                     const xKey = timeView === 'weekly' ? 'week' : 'dayOfWeek';
                     const targetValue = timeView === 'weekly' ? lead.weeklyTarget : lead.dailyTarget;
 
