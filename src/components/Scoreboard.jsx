@@ -606,7 +606,8 @@ const Scoreboard = ({ wigs, selectedWigId, onSelectWig, onTodayDataChange }) => 
                                                     if (existing?.id) {
                                                         await weeklyDataApi.update(existing.id, {
                                                             week: selectedWeek,
-                                                            actual: parseFloat(newWeeklyActual) || null
+                                                            actual: parseFloat(newWeeklyActual) || null,
+                                                            wigId: selectedWigId
                                                         });
                                                     } else {
                                                         await weeklyDataApi.create({
