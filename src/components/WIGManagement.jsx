@@ -427,13 +427,15 @@ const WIGManagement = ({ wigs, onWigChange, autoShowForm, expandedWigId, setExpa
                                             onChange={e => setEditingWig({...editingWig, byWhen: e.target.value})}
                                             className="p-2 border rounded"
                                         />
-                                        <input
-                                            type="text"
-                                            placeholder="단위"
-                                            value={editingWig.unit}
-                                            onChange={e => setEditingWig({...editingWig, unit: e.target.value})}
-                                            className="p-2 border rounded"
-                                        />
+                                        {editingWig.measureType === 'NUMERIC' && (
+                                            <input
+                                                type="text"
+                                                placeholder="단위"
+                                                value={editingWig.unit}
+                                                onChange={e => setEditingWig({...editingWig, unit: e.target.value})}
+                                                className="p-2 border rounded"
+                                            />
+                                        )}
                                     </div>
                                     <div className="flex gap-2">
                                         <button
