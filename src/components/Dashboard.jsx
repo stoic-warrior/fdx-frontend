@@ -290,12 +290,24 @@ const Dashboard = ({ wigs, selectedWigId, onSelectWig, onWigChange, refreshKey }
                                                     </div>
                                                 </div>
                                                 <div className="w-32 text-right flex-shrink-0">
-                                                    <span className={`text-sm ${isGood ? 'text-green-600 font-medium' : 'text-gray-600'}`}>
-                                                        {lead.dailyActual || 0} {lead.unit}
-                                                    </span>
-                                                    <span className="text-xs text-gray-400 ml-1">
-                                                        ({barProgress.toFixed(0)}%)
-                                                    </span>
+                                                    {lead.leadMeasureType === 'BOOLEAN' ? (
+                                                        <span className={`inline-flex items-center justify-center w-8 h-8 rounded-lg font-bold text-sm ${
+                                                            (lead.dailyActual || 0) >= 1
+                                                                ? 'bg-green-100 text-green-600'
+                                                                : 'bg-red-50 text-red-400'
+                                                        }`}>
+                                                            {(lead.dailyActual || 0) >= 1 ? 'O' : 'X'}
+                                                        </span>
+                                                    ) : (
+                                                        <>
+                                                            <span className={`text-sm ${isGood ? 'text-green-600 font-medium' : 'text-gray-600'}`}>
+                                                                {lead.dailyActual || 0} {lead.unit}
+                                                            </span>
+                                                            <span className="text-xs text-gray-400 ml-1">
+                                                                ({barProgress.toFixed(0)}%)
+                                                            </span>
+                                                        </>
+                                                    )}
                                                 </div>
                                                 <div className="w-14 flex-shrink-0 flex items-center justify-end gap-1">
                                                     <span className={`text-sm font-semibold ${streak > 0 ? 'text-orange-500' : 'text-gray-300'}`}>

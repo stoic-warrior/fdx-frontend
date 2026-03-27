@@ -488,18 +488,25 @@ const Scoreboard = ({ wigs, selectedWigId, onSelectWig, onTodayDataChange }) => 
                     const xKey = timeView === 'weekly' ? 'week' : 'dayOfWeek';
                     const targetValue = timeView === 'weekly' ? lead.weeklyTarget : lead.dailyTarget;
 
+                    const isBoolean = lead.leadMeasureType === 'BOOLEAN';
+                    const dailyCalendarData = fillMissingDates(dailyData[selectedWeek] || [], selectedWeek, selectedWig.leadMeasures || []);
+                    const oCount = dailyCalendarData.filter(d => (d[chartKey] || 0) >= 1).length;
+
                     return (
                         <div key={lead.id} className="bg-white p-6 rounded-lg shadow">
                             <div className="flex items-center justify-between mb-4">
-                                <h3 className="text-lg font-bold">Lead: {lead.name} ({lead.unit})</h3>
+                                <h3 className="text-lg font-bold">Lead: {lead.name} {isBoolean ? '(OX)' : `(${lead.unit})`}</h3>
                                 <div className="flex items-center gap-2">
-                                    <button
-                                        onClick={() => toggleChartType(chartKey)}
-                                        className="p-1.5 bg-gray-100 rounded-lg hover:bg-gray-200"
-                                        title="차트 타입 변경"
-                                    >
-                                        {chartTypes[chartKey] === 'line' ? <BarChart3 size={16} /> : <LineChartIcon size={16} />}
-                                    </button>
+                                    {/* 차트 타입 토글: BOOLEAN 일간에서는 숨김 */}
+                                    {!(isBoolean && timeView === 'daily') && (
+                                        <button
+                                            onClick={() => toggleChartType(chartKey)}
+                                            className="p-1.5 bg-gray-100 rounded-lg hover:bg-gray-200"
+                                            title="차트 타입 변경"
+                                        >
+                                            {chartTypes[chartKey] === 'line' ? <BarChart3 size={16} /> : <LineChartIcon size={16} />}
+                                        </button>
+                                    )}
                                     <div className="flex bg-gray-200 rounded-lg p-0.5">
                                         <button
                                             onClick={() => toggleChartTimeView(chartKey)}
@@ -521,30 +528,73 @@ const Scoreboard = ({ wigs, selectedWigId, onSelectWig, onTodayDataChange }) => 
                                 </div>
                             </div>
 
-                            <ResponsiveContainer width="100%" height={200}>
-                                {chartTypes[chartKey] === 'line' ? (
-                                    <LineChart data={dataToShow}>
-                                        <CartesianGrid strokeDasharray="3 3" />
-                                        <XAxis dataKey={xKey} />
-                                        <YAxis domain={[0, dataMax => Math.max(dataMax, parseFloat(targetValue || 0) * 1.1)]} />
-                                        <Tooltip />
-                                        <ReferenceLine y={targetValue} stroke="#ef4444" strokeDasharray="5 5" />
-                                        <Line type="monotone" dataKey={chartKey} stroke={["#10b981", "#f59e0b", "#3b82f6", "#ef4444", "#8b5cf6"][idx]} strokeWidth={3} name={lead.name} connectNulls={lead.goalDirection === 'MINIMIZE'} />
-                                    </LineChart>
-                                ) : (
-                                    <BarChart data={dataToShow}>
-                                        <CartesianGrid strokeDasharray="3 3" />
-                                        <XAxis dataKey={xKey} />
-                                        <YAxis domain={[0, dataMax => Math.max(dataMax, parseFloat(targetValue || 0) * 1.1)]} />
-                                        <Tooltip />
-                                        <ReferenceLine y={targetValue} stroke="#ef4444" strokeDasharray="5 5" />
-                                        <Bar dataKey={chartKey} fill={["#10b981", "#f59e0b", "#3b82f6", "#ef4444", "#8b5cf6"][idx]} name={lead.name} />
-                                    </BarChart>
-                                )}
-                            </ResponsiveContainer>
-                            <div className="mt-2 text-sm text-gray-600 text-center">
-                                {timeView === 'weekly' ? '주간' : '일간'} 목표: {targetValue} {lead.unit}
-                            </div>
+                            {/* BOOLEAN + 일간: O/X 캘린더 */}
+                            {isBoolean && timeView === 'daily' ? (
+                                <div>
+                                    <div className="flex justify-center gap-2">
+                                        {dailyCalendarData.map(d => {
+                                            const val = d[chartKey] || 0;
+                                            const achieved = val >= 1;
+                                            const today = getLocalToday();
+                                            const isToday = d.date === today;
+                                            const isFuture = d.date > today;
+                                            return (
+                                                <div
+                                                    key={d.date}
+                                                    className={`flex flex-col items-center gap-1 ${isFuture ? 'opacity-30' : ''}`}
+                                                >
+                                                    <span className="text-xs text-gray-500">{d.dayOfWeek}</span>
+                                                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center font-bold text-lg transition-all ${
+                                                        isFuture
+                                                            ? 'bg-gray-100 text-gray-300'
+                                                            : achieved
+                                                                ? 'bg-green-500 text-white shadow-md'
+                                                                : d.isEmpty
+                                                                    ? 'bg-gray-100 text-gray-300 border border-dashed border-gray-300'
+                                                                    : 'bg-red-100 text-red-500 border border-red-300'
+                                                    } ${isToday ? 'ring-2 ring-blue-400 ring-offset-1' : ''}`}>
+                                                        {isFuture ? '-' : achieved ? 'O' : d.isEmpty ? '-' : 'X'}
+                                                    </div>
+                                                    <span className="text-[10px] text-gray-400">
+                                                        {d.date.slice(5)}
+                                                    </span>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                    <div className="mt-3 text-sm text-gray-600 text-center">
+                                        {selectedWeek} 달성: <span className="font-bold text-green-600">{oCount}</span> / {dailyCalendarData.filter(d => d.date <= getLocalToday()).length}일
+                                    </div>
+                                </div>
+                            ) : (
+                                /* 수치형 or BOOLEAN 주간: 기존 차트 */
+                                <>
+                                    <ResponsiveContainer width="100%" height={200}>
+                                        {chartTypes[chartKey] === 'line' ? (
+                                            <LineChart data={dataToShow}>
+                                                <CartesianGrid strokeDasharray="3 3" />
+                                                <XAxis dataKey={xKey} />
+                                                <YAxis domain={[0, dataMax => Math.max(dataMax, parseFloat(targetValue || 0) * 1.1)]} />
+                                                <Tooltip />
+                                                <ReferenceLine y={targetValue} stroke="#ef4444" strokeDasharray="5 5" />
+                                                <Line type="monotone" dataKey={chartKey} stroke={["#10b981", "#f59e0b", "#3b82f6", "#ef4444", "#8b5cf6"][idx]} strokeWidth={3} name={lead.name} connectNulls={lead.goalDirection === 'MINIMIZE'} />
+                                            </LineChart>
+                                        ) : (
+                                            <BarChart data={dataToShow}>
+                                                <CartesianGrid strokeDasharray="3 3" />
+                                                <XAxis dataKey={xKey} />
+                                                <YAxis domain={[0, dataMax => Math.max(dataMax, parseFloat(targetValue || 0) * 1.1)]} />
+                                                <Tooltip />
+                                                <ReferenceLine y={targetValue} stroke="#ef4444" strokeDasharray="5 5" />
+                                                <Bar dataKey={chartKey} fill={["#10b981", "#f59e0b", "#3b82f6", "#ef4444", "#8b5cf6"][idx]} name={lead.name} />
+                                            </BarChart>
+                                        )}
+                                    </ResponsiveContainer>
+                                    <div className="mt-2 text-sm text-gray-600 text-center">
+                                        {timeView === 'weekly' ? '주간' : '일간'} 목표: {targetValue} {lead.unit}
+                                    </div>
+                                </>
+                            )}
                         </div>
                     );
                 })}
@@ -575,9 +625,14 @@ const Scoreboard = ({ wigs, selectedWigId, onSelectWig, onTodayDataChange }) => 
                                 const weekSummary = weeklyChartData.find(w => w.week === selectedWeek);
                                 return (
                                     <span className="ml-2">
-                                        {selectedWig.leadMeasures?.map((lead, idx) => (
-                                            <span key={lead.id} className="mr-4">{lead.name}: {weekSummary?.[`lead${idx + 1}`] || 0} {lead.unit}</span>
-                                        ))}
+                                        {selectedWig.leadMeasures?.map((lead, idx) => {
+                                            const val = weekSummary?.[`lead${idx + 1}`] || 0;
+                                            return (
+                                                <span key={lead.id} className="mr-4">
+                                                    {lead.name}: {lead.leadMeasureType === 'BOOLEAN' ? `${val}/7일` : `${val} ${lead.unit}`}
+                                                </span>
+                                            );
+                                        })}
                                     </span>
                                 );
                             })()}
@@ -668,7 +723,7 @@ const Scoreboard = ({ wigs, selectedWigId, onSelectWig, onTodayDataChange }) => 
                             <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">요일</th>
                             {selectedWig.leadMeasures?.map(lead => (
                                 <th key={lead.id} className="px-4 py-3 text-left text-sm font-semibold text-gray-700">
-                                    {lead.name} ({lead.unit})
+                                    {lead.name} {lead.leadMeasureType === 'BOOLEAN' ? '(OX)' : `(${lead.unit})`}
                                 </th>
                             ))}
                             <th className="px-4 py-3 text-center text-sm font-semibold text-gray-700">액션</th>
@@ -702,13 +757,26 @@ const Scoreboard = ({ wigs, selectedWigId, onSelectWig, onTodayDataChange }) => 
                                             const key = `lead${idx + 1}`;
                                             return (
                                                 <td key={lead.id} className="px-4 py-3">
-                                                    <input
-                                                        type="number"
-                                                        step="0.1"
-                                                        value={editData[key] || ''}
-                                                        onChange={e => setEditData({...editData, [key]: e.target.value})}
-                                                        className="p-1 border rounded w-20"
-                                                    />
+                                                    {lead.leadMeasureType === 'BOOLEAN' ? (
+                                                        <button
+                                                            onClick={() => setEditData({...editData, [key]: editData[key] == 1 ? 0 : 1})}
+                                                            className={`w-10 h-10 rounded-lg font-bold text-lg transition-all ${
+                                                                editData[key] == 1
+                                                                    ? 'bg-green-500 text-white shadow-md'
+                                                                    : 'bg-red-100 text-red-500 border border-red-300'
+                                                            }`}
+                                                        >
+                                                            {editData[key] == 1 ? 'O' : 'X'}
+                                                        </button>
+                                                    ) : (
+                                                        <input
+                                                            type="number"
+                                                            step="0.1"
+                                                            value={editData[key] || ''}
+                                                            onChange={e => setEditData({...editData, [key]: e.target.value})}
+                                                            className="p-1 border rounded w-20"
+                                                        />
+                                                    )}
                                                 </td>
                                             );
                                         })}
@@ -730,15 +798,28 @@ const Scoreboard = ({ wigs, selectedWigId, onSelectWig, onTodayDataChange }) => 
                                             const key = `lead${idx + 1}`;
                                             return (
                                                 <td key={lead.id} className="px-4 py-3">
-                                                    <input
-                                                        type="number"
-                                                        step="0.1"
-                                                        value={newData[key]}
-                                                        onChange={e => setNewData({...newData, [key]: e.target.value})}
-                                                        className="p-1 border rounded w-20"
-                                                        placeholder={lead.dailyTarget}
-                                                        autoFocus={idx === 0}
-                                                    />
+                                                    {lead.leadMeasureType === 'BOOLEAN' ? (
+                                                        <button
+                                                            onClick={() => setNewData({...newData, [key]: newData[key] == 1 ? 0 : 1})}
+                                                            className={`w-10 h-10 rounded-lg font-bold text-lg transition-all ${
+                                                                newData[key] == 1
+                                                                    ? 'bg-green-500 text-white shadow-md'
+                                                                    : 'bg-red-100 text-red-500 border border-red-300'
+                                                            }`}
+                                                        >
+                                                            {newData[key] == 1 ? 'O' : 'X'}
+                                                        </button>
+                                                    ) : (
+                                                        <input
+                                                            type="number"
+                                                            step="0.1"
+                                                            value={newData[key]}
+                                                            onChange={e => setNewData({...newData, [key]: e.target.value})}
+                                                            className="p-1 border rounded w-20"
+                                                            placeholder={lead.dailyTarget}
+                                                            autoFocus={idx === 0}
+                                                        />
+                                                    )}
                                                 </td>
                                             );
                                         })}
@@ -756,9 +837,24 @@ const Scoreboard = ({ wigs, selectedWigId, onSelectWig, onTodayDataChange }) => 
                                     <>
                                         <td className="px-4 py-3">{item.date}</td>
                                         <td className="px-4 py-3">{item.dayOfWeek}</td>
-                                        {selectedWig.leadMeasures?.map((lead, idx) => (
-                                            <td key={lead.id} className="px-4 py-3">{item[`lead${idx + 1}`] ?? 0}</td>
-                                        ))}
+                                        {selectedWig.leadMeasures?.map((lead, idx) => {
+                                            const val = item[`lead${idx + 1}`];
+                                            return (
+                                                <td key={lead.id} className="px-4 py-3">
+                                                    {lead.leadMeasureType === 'BOOLEAN' ? (
+                                                        <span className={`inline-flex items-center justify-center w-8 h-8 rounded-lg font-bold text-sm ${
+                                                            val >= 1
+                                                                ? 'bg-green-100 text-green-600'
+                                                                : 'bg-red-50 text-red-400'
+                                                        }`}>
+                                                            {val >= 1 ? 'O' : 'X'}
+                                                        </span>
+                                                    ) : (
+                                                        val ?? 0
+                                                    )}
+                                                </td>
+                                            );
+                                        })}
                                         <td className="px-4 py-3 text-center">
                                             {item.isEmpty ? (
                                                 // 빈 데이터: 클릭하면 인라인 입력 모드
