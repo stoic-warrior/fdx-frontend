@@ -37,7 +37,8 @@ const WIGManagement = ({ wigs, onWigChange, autoShowForm, expandedWigId, setExpa
         dailyTarget: '',
         weeklyTarget: '',
         unit: '',
-        goalDirection: 'MAXIMIZE'
+        goalDirection: 'MAXIMIZE',
+        leadMeasureType: 'NUMERIC'
     });
 
     // Milestone 관련 상태
@@ -113,13 +114,19 @@ const WIGManagement = ({ wigs, onWigChange, autoShowForm, expandedWigId, setExpa
     // ========================
     const handleCreateLeadMeasure = async (wigId) => {
         try {
-            await leadMeasureApi.create({
-                ...newLeadMeasure,
-                dailyTarget: parseFloat(newLeadMeasure.dailyTarget),
-                weeklyTarget: parseFloat(newLeadMeasure.weeklyTarget),
+            const payload = {
+                name: newLeadMeasure.name,
+                leadMeasureType: newLeadMeasure.leadMeasureType,
+                goalDirection: newLeadMeasure.goalDirection,
                 wigId
-            });
-            setNewLeadMeasure({ name: '', dailyTarget: '', weeklyTarget: '', unit: '', goalDirection: 'MAXIMIZE' });
+            };
+            if (newLeadMeasure.leadMeasureType === 'NUMERIC') {
+                payload.dailyTarget = parseFloat(newLeadMeasure.dailyTarget);
+                payload.weeklyTarget = parseFloat(newLeadMeasure.weeklyTarget);
+                payload.unit = newLeadMeasure.unit;
+            }
+            await leadMeasureApi.create(payload);
+            setNewLeadMeasure({ name: '', dailyTarget: '', weeklyTarget: '', unit: '', goalDirection: 'MAXIMIZE', leadMeasureType: 'NUMERIC' });
             setShowLeadMeasureForm(null);
             await onWigChange();
             setExpandedWigId(wigId);
@@ -131,14 +138,18 @@ const WIGManagement = ({ wigs, onWigChange, autoShowForm, expandedWigId, setExpa
 
     const handleUpdateLeadMeasure = async (wigId) => {
         try {
-            await leadMeasureApi.update(editingLeadMeasure.id, {
+            const updatePayload = {
                 name: editingLeadMeasure.name,
-                dailyTarget: parseFloat(editingLeadMeasure.dailyTarget),
-                weeklyTarget: parseFloat(editingLeadMeasure.weeklyTarget),
-                unit: editingLeadMeasure.unit,
+                leadMeasureType: editingLeadMeasure.leadMeasureType,
                 goalDirection: editingLeadMeasure.goalDirection,
                 wigId: wigId
-            });
+            };
+            if (editingLeadMeasure.leadMeasureType === 'NUMERIC') {
+                updatePayload.dailyTarget = parseFloat(editingLeadMeasure.dailyTarget);
+                updatePayload.weeklyTarget = parseFloat(editingLeadMeasure.weeklyTarget);
+                updatePayload.unit = editingLeadMeasure.unit;
+            }
+            await leadMeasureApi.update(editingLeadMeasure.id, updatePayload);
             setEditingLeadMeasure(null);
             await onWigChange();
             setExpandedWigId(wigId);
@@ -524,67 +535,101 @@ const WIGManagement = ({ wigs, onWigChange, autoShowForm, expandedWigId, setExpa
                                     {/* Lead Measure 추가 폼 */}
                                     {showLeadMeasureForm === wig.id && (
                                         <div className="bg-white p-4 rounded-lg border border-blue-200 mb-3">
+                                            {/* 측정 유형 선택 */}
+                                            <div className="flex gap-3 mb-3">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setNewLeadMeasure({...newLeadMeasure, leadMeasureType: 'NUMERIC'})}
+                                                    className={`flex-1 p-3 rounded-lg border-2 transition-all text-sm ${
+                                                        newLeadMeasure.leadMeasureType === 'NUMERIC'
+                                                            ? 'border-green-500 bg-green-50 text-green-700'
+                                                            : 'border-gray-200 hover:border-gray-300'
+                                                    }`}
+                                                >
+                                                    <div className="font-bold">수치형</div>
+                                                    <div className="text-xs text-gray-500">숫자 입력 (예: 6시간)</div>
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setNewLeadMeasure({...newLeadMeasure, leadMeasureType: 'BOOLEAN'})}
+                                                    className={`flex-1 p-3 rounded-lg border-2 transition-all text-sm ${
+                                                        newLeadMeasure.leadMeasureType === 'BOOLEAN'
+                                                            ? 'border-orange-500 bg-orange-50 text-orange-700'
+                                                            : 'border-gray-200 hover:border-gray-300'
+                                                    }`}
+                                                >
+                                                    <div className="font-bold">OX형</div>
+                                                    <div className="text-xs text-gray-500">했다/안했다 (예: 운동 여부)</div>
+                                                </button>
+                                            </div>
+
                                             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                                                 <input
                                                     type="text"
                                                     placeholder="지표명"
                                                     value={newLeadMeasure.name}
                                                     onChange={e => setNewLeadMeasure({...newLeadMeasure, name: e.target.value})}
-                                                    className="p-2 border rounded"
+                                                    className={newLeadMeasure.leadMeasureType === 'BOOLEAN' ? "p-2 border rounded col-span-2 md:col-span-4" : "p-2 border rounded"}
                                                 />
-                                                <input
-                                                    type="number"
-                                                    placeholder="일일 목표"
-                                                    value={newLeadMeasure.dailyTarget}
-                                                    onChange={e => setNewLeadMeasure({...newLeadMeasure, dailyTarget: e.target.value})}
-                                                    className="p-2 border rounded"
-                                                />
-                                                <input
-                                                    type="number"
-                                                    placeholder="주간 목표"
-                                                    value={newLeadMeasure.weeklyTarget}
-                                                    onChange={e => setNewLeadMeasure({...newLeadMeasure, weeklyTarget: e.target.value})}
-                                                    className="p-2 border rounded"
-                                                />
-                                                <input
-                                                    type="text"
-                                                    placeholder="단위"
-                                                    value={newLeadMeasure.unit}
-                                                    onChange={e => setNewLeadMeasure({...newLeadMeasure, unit: e.target.value})}
-                                                    className="p-2 border rounded"
-                                                />
+                                                {newLeadMeasure.leadMeasureType === 'NUMERIC' && (
+                                                    <>
+                                                        <input
+                                                            type="number"
+                                                            placeholder="일일 목표"
+                                                            value={newLeadMeasure.dailyTarget}
+                                                            onChange={e => setNewLeadMeasure({...newLeadMeasure, dailyTarget: e.target.value})}
+                                                            className="p-2 border rounded"
+                                                        />
+                                                        <input
+                                                            type="number"
+                                                            placeholder="주간 목표"
+                                                            value={newLeadMeasure.weeklyTarget}
+                                                            onChange={e => setNewLeadMeasure({...newLeadMeasure, weeklyTarget: e.target.value})}
+                                                            className="p-2 border rounded"
+                                                        />
+                                                        <input
+                                                            type="text"
+                                                            placeholder="단위"
+                                                            value={newLeadMeasure.unit}
+                                                            onChange={e => setNewLeadMeasure({...newLeadMeasure, unit: e.target.value})}
+                                                            className="p-2 border rounded"
+                                                        />
+                                                    </>
+                                                )}
                                             </div>
-                                            <div className="flex items-center gap-4 mt-3">
-                                                <span className="text-sm text-gray-600">목표 방향:</span>
-                                                <label className="flex items-center gap-1 cursor-pointer">
-                                                    <input
-                                                        type="radio"
-                                                        name="newGoalDirection"
-                                                        checked={newLeadMeasure.goalDirection === 'MAXIMIZE'}
-                                                        onChange={() => setNewLeadMeasure({...newLeadMeasure, goalDirection: 'MAXIMIZE'})}
-                                                    />
-                                                    <span className="text-sm">↑ 높을수록 좋음</span>
-                                                </label>
-                                                <label className="flex items-center gap-1 cursor-pointer">
-                                                    <input
-                                                        type="radio"
-                                                        name="newGoalDirection"
-                                                        checked={newLeadMeasure.goalDirection === 'MINIMIZE'}
-                                                        onChange={() => setNewLeadMeasure({...newLeadMeasure, goalDirection: 'MINIMIZE'})}
-                                                    />
-                                                    <span className="text-sm">↓ 낮을수록 좋음</span>
-                                                </label>
-                                            </div>
+                                            {newLeadMeasure.leadMeasureType === 'NUMERIC' && (
+                                                <div className="flex items-center gap-4 mt-3">
+                                                    <span className="text-sm text-gray-600">목표 방향:</span>
+                                                    <label className="flex items-center gap-1 cursor-pointer">
+                                                        <input
+                                                            type="radio"
+                                                            name="newGoalDirection"
+                                                            checked={newLeadMeasure.goalDirection === 'MAXIMIZE'}
+                                                            onChange={() => setNewLeadMeasure({...newLeadMeasure, goalDirection: 'MAXIMIZE'})}
+                                                        />
+                                                        <span className="text-sm">↑ 높을수록 좋음</span>
+                                                    </label>
+                                                    <label className="flex items-center gap-1 cursor-pointer">
+                                                        <input
+                                                            type="radio"
+                                                            name="newGoalDirection"
+                                                            checked={newLeadMeasure.goalDirection === 'MINIMIZE'}
+                                                            onChange={() => setNewLeadMeasure({...newLeadMeasure, goalDirection: 'MINIMIZE'})}
+                                                        />
+                                                        <span className="text-sm">↓ 낮을수록 좋음</span>
+                                                    </label>
+                                                </div>
+                                            )}
                                             <div className="flex gap-2 mt-3">
                                                 <button
                                                     onClick={() => handleCreateLeadMeasure(wig.id)}
-                                                    disabled={!newLeadMeasure.name || !newLeadMeasure.dailyTarget}
+                                                    disabled={!newLeadMeasure.name || (newLeadMeasure.leadMeasureType === 'NUMERIC' && !newLeadMeasure.dailyTarget)}
                                                     className="px-4 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 disabled:bg-gray-300"
                                                 >
                                                     추가
                                                 </button>
                                                 <button
-                                                    onClick={() => { setShowLeadMeasureForm(null); setNewLeadMeasure({ name: '', dailyTarget: '', weeklyTarget: '', unit: '', goalDirection: 'MAXIMIZE' }); }}
+                                                    onClick={() => { setShowLeadMeasureForm(null); setNewLeadMeasure({ name: '', dailyTarget: '', weeklyTarget: '', unit: '', goalDirection: 'MAXIMIZE', leadMeasureType: 'NUMERIC' }); }}
                                                     className="px-4 py-1 bg-gray-200 text-gray-700 text-sm rounded hover:bg-gray-300"
                                                 >
                                                     취소
@@ -607,35 +652,39 @@ const WIGManagement = ({ wigs, onWigChange, autoShowForm, expandedWigId, setExpa
                                                                 onChange={e => setEditingLeadMeasure({...editingLeadMeasure, name: e.target.value})}
                                                                 className="p-1 border rounded flex-1"
                                                             />
-                                                            <input
-                                                                type="number"
-                                                                value={editingLeadMeasure.dailyTarget}
-                                                                onChange={e => setEditingLeadMeasure({...editingLeadMeasure, dailyTarget: e.target.value})}
-                                                                className="p-1 border rounded w-20"
-                                                                placeholder="일일"
-                                                            />
-                                                            <input
-                                                                type="number"
-                                                                value={editingLeadMeasure.weeklyTarget}
-                                                                onChange={e => setEditingLeadMeasure({...editingLeadMeasure, weeklyTarget: e.target.value})}
-                                                                className="p-1 border rounded w-20"
-                                                                placeholder="주간"
-                                                            />
-                                                            <input
-                                                                type="text"
-                                                                value={editingLeadMeasure.unit}
-                                                                onChange={e => setEditingLeadMeasure({...editingLeadMeasure, unit: e.target.value})}
-                                                                className="p-1 border rounded w-16"
-                                                                placeholder="단위"
-                                                            />
-                                                            <select
-                                                                value={editingLeadMeasure.goalDirection || 'MAXIMIZE'}
-                                                                onChange={e => setEditingLeadMeasure({...editingLeadMeasure, goalDirection: e.target.value})}
-                                                                className="p-1 border rounded text-sm"
-                                                            >
-                                                                <option value="MAXIMIZE">↑ 높을수록</option>
-                                                                <option value="MINIMIZE">↓ 낮을수록</option>
-                                                            </select>
+                                                            {editingLeadMeasure.leadMeasureType !== 'BOOLEAN' && (
+                                                                <>
+                                                                    <input
+                                                                        type="number"
+                                                                        value={editingLeadMeasure.dailyTarget}
+                                                                        onChange={e => setEditingLeadMeasure({...editingLeadMeasure, dailyTarget: e.target.value})}
+                                                                        className="p-1 border rounded w-20"
+                                                                        placeholder="일일"
+                                                                    />
+                                                                    <input
+                                                                        type="number"
+                                                                        value={editingLeadMeasure.weeklyTarget}
+                                                                        onChange={e => setEditingLeadMeasure({...editingLeadMeasure, weeklyTarget: e.target.value})}
+                                                                        className="p-1 border rounded w-20"
+                                                                        placeholder="주간"
+                                                                    />
+                                                                    <input
+                                                                        type="text"
+                                                                        value={editingLeadMeasure.unit}
+                                                                        onChange={e => setEditingLeadMeasure({...editingLeadMeasure, unit: e.target.value})}
+                                                                        className="p-1 border rounded w-16"
+                                                                        placeholder="단위"
+                                                                    />
+                                                                    <select
+                                                                        value={editingLeadMeasure.goalDirection || 'MAXIMIZE'}
+                                                                        onChange={e => setEditingLeadMeasure({...editingLeadMeasure, goalDirection: e.target.value})}
+                                                                        className="p-1 border rounded text-sm"
+                                                                    >
+                                                                        <option value="MAXIMIZE">↑ 높을수록</option>
+                                                                        <option value="MINIMIZE">↓ 낮을수록</option>
+                                                                    </select>
+                                                                </>
+                                                            )}
                                                             <button onClick={() => handleUpdateLeadMeasure(wig.id)} className="p-1 text-green-600 hover:bg-green-50 rounded">
                                                                 <Check size={16} />
                                                             </button>
@@ -648,16 +697,24 @@ const WIGManagement = ({ wigs, onWigChange, autoShowForm, expandedWigId, setExpa
                                                         <>
                                                             <div className="flex items-center gap-2">
                                                                 <span className="font-medium">{lead.name}</span>
-                                                                <span className={`text-xs px-1.5 py-0.5 rounded ${
-                                                                    lead.goalDirection === 'MINIMIZE'
-                                                                        ? 'bg-orange-100 text-orange-700'
-                                                                        : 'bg-green-100 text-green-700'
-                                                                }`}>
-                                                                    {lead.goalDirection === 'MINIMIZE' ? '↓' : '↑'}
-                                                                </span>
-                                                                <span className="text-gray-500 text-sm">
-                                                                    (일 {lead.dailyTarget}{lead.unit} / 주 {lead.weeklyTarget}{lead.unit})
-                                                                </span>
+                                                                {lead.leadMeasureType === 'BOOLEAN' ? (
+                                                                    <span className="text-xs px-1.5 py-0.5 rounded bg-orange-100 text-orange-700">
+                                                                        OX
+                                                                    </span>
+                                                                ) : (
+                                                                    <>
+                                                                        <span className={`text-xs px-1.5 py-0.5 rounded ${
+                                                                            lead.goalDirection === 'MINIMIZE'
+                                                                                ? 'bg-orange-100 text-orange-700'
+                                                                                : 'bg-green-100 text-green-700'
+                                                                        }`}>
+                                                                            {lead.goalDirection === 'MINIMIZE' ? '↓' : '↑'}
+                                                                        </span>
+                                                                        <span className="text-gray-500 text-sm">
+                                                                            (일 {lead.dailyTarget}{lead.unit} / 주 {lead.weeklyTarget}{lead.unit})
+                                                                        </span>
+                                                                    </>
+                                                                )}
                                                             </div>
                                                             <div className="flex gap-1">
                                                                 <button
