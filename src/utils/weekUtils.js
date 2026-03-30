@@ -41,8 +41,8 @@ export const calculateWeeks = (wig) => {
     const finalDate = new Date(Math.max(endDate, today));
 
     const diffTime = finalDate - startMonday;
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    const totalWeeks = Math.max(1, Math.ceil(diffDays / 7));
+    const diffDays = Math.max(0, Math.floor(diffTime / (1000 * 60 * 60 * 24)));
+    const totalWeeks = Math.max(1, Math.floor(diffDays / 7) + 1);
 
     return Array.from({ length: totalWeeks }, (_, i) => `W${i + 1}`);
 };
@@ -59,8 +59,8 @@ export const getCurrentWeek = (wig) => {
     const startMonday = getMonday(new Date(wigCreatedDate));
     const today = new Date(getLocalToday());
     const diffTime = today - startMonday;
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    const currentWeekNum = Math.max(1, Math.ceil(diffDays / 7));
+    const diffDays = Math.max(0, Math.floor(diffTime / (1000 * 60 * 60 * 24)));
+    const currentWeekNum = Math.max(1, Math.floor(diffDays / 7) + 1);
     const currentWeek = `W${currentWeekNum}`;
 
     const weeks = calculateWeeks(wig);

@@ -4,7 +4,7 @@ import commitmentApi from '../api/commitmentApi';
 import weeklyDataApi from '../api/weeklyDataApi';
 import dailyDataApi from '../api/dailyDataApi';
 import milestoneApi from '../api/milestoneApi';
-import { getLocalToday, calculateWeeks, getCurrentWeek } from '../utils/weekUtils';
+import { getLocalToday, getCurrentWeek } from '../utils/weekUtils';
 
 const Dashboard = ({ wigs, selectedWigId, onSelectWig, onWigChange, refreshKey }) => {
     const [commitments, setCommitments] = useState([]);
@@ -45,20 +45,8 @@ const Dashboard = ({ wigs, selectedWigId, onSelectWig, onWigChange, refreshKey }
 
             try {
                 const today = getLocalToday();
-                const weeks = calculateWeeks(selectedWig);
-
-                let foundTodayData = null;
-                for (const week of weeks) {
-                    const dailyResult = await dailyDataApi.getByWigIdAndWeek(selectedWigId, week);
-                    if (dailyResult && dailyResult.length > 0) {
-                        const todayData = dailyResult.find(d => d.date === today);
-                        if (todayData) {
-                            foundTodayData = todayData;
-                            break;
-                        }
-                    }
-                }
-                setTodayDailyData(foundTodayData);
+                const dailyResult = await dailyDataApi.getByDateRange(selectedWigId, today, today);
+                setTodayDailyData(dailyResult && dailyResult.length > 0 ? dailyResult[0] : null);
             } catch (err) {
                 console.error('일간 데이터 로드 실패:', err);
                 setTodayDailyData(null);

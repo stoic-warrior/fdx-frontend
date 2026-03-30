@@ -71,6 +71,7 @@ const dailyDataApi = {
     const response = await apiClient.get(`/api/wigs/${wigId}/streak`);
     return response.data;
   },
+
 };
 
 export default dailyDataApi;
