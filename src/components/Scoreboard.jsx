@@ -3,6 +3,7 @@ import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, R
 import { BarChart3, LineChart as LineChartIcon, Plus, Edit2, Trash2, X, Check, Save } from 'lucide-react';
 import dailyDataApi from '../api/dailyDataApi';
 import weeklyDataApi from '../api/weeklyDataApi';
+import { getMonday } from '../utils/weekUtils';
 
 /**
  * Scoreboard
@@ -87,18 +88,18 @@ const Scoreboard = ({ wigs, selectedWigId, onSelectWig, onTodayDataChange }) => 
     // WIG 생성일 (min 날짜로 사용)
     const wigCreatedDate = selectedWig?.createdAt?.split('T')[0] || '2020-01-01';
 
-    // WIG 기간에 따른 동적 주차 계산
+    // WIG 기간에 따른 동적 주차 계산 (월요일~일요일 고정)
     const calculateWeeks = () => {
         if (!selectedWig) return ['W1'];
 
-        const startDate = new Date(wigCreatedDate);
+        const startMonday = getMonday(new Date(wigCreatedDate));
         const endDate = selectedWig.byWhen ? new Date(selectedWig.byWhen) : new Date();
         const today = new Date(getLocalToday());
 
         // 목표일과 오늘 중 더 늦은 날짜까지 주차 생성
         const finalDate = new Date(Math.max(endDate, today));
 
-        const diffTime = finalDate - startDate;
+        const diffTime = finalDate - startMonday;
         const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
         const totalWeeks = Math.max(1, Math.ceil(diffDays / 7));
 
@@ -107,11 +108,11 @@ const Scoreboard = ({ wigs, selectedWigId, onSelectWig, onTodayDataChange }) => 
 
     const weeks = calculateWeeks();
 
-    // 현재 주차 계산 (오늘 기준)
+    // 현재 주차 계산 (오늘 기준, 월요일~일요일 고정)
     const getCurrentWeek = () => {
-        const startDate = new Date(wigCreatedDate);
+        const startMonday = getMonday(new Date(wigCreatedDate));
         const today = new Date(getLocalToday());
-        const diffTime = today - startDate;
+        const diffTime = today - startMonday;
         const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
         const currentWeekNum = Math.max(1, Math.ceil(diffDays / 7));
         const currentWeek = `W${currentWeekNum}`;
@@ -163,18 +164,18 @@ const Scoreboard = ({ wigs, selectedWigId, onSelectWig, onTodayDataChange }) => 
         return filledData.sort((a, b) => a.date.localeCompare(b.date));
     };
 
-    // 주차 시작일/종료일 (간단히 7일 단위로 계산)
+    // 주차 시작일/종료일 (월요일~일요일 고정)
     const getWeekStartDate = (week) => {
         const weekNum = parseInt(week.replace('W', ''));
-        const start = new Date(wigCreatedDate);
-        start.setDate(start.getDate() + (weekNum - 1) * 7);
-        return start;
+        const startMonday = getMonday(new Date(wigCreatedDate));
+        startMonday.setDate(startMonday.getDate() + (weekNum - 1) * 7);
+        return startMonday;
     };
 
     const getWeekEndDate = (week) => {
         const start = getWeekStartDate(week);
         const end = new Date(start);
-        end.setDate(end.getDate() + 6);
+        end.setDate(end.getDate() + 6); // 일요일
         return end;
     };
 

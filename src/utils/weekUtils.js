@@ -1,6 +1,7 @@
 /**
  * 주차 계산 유틸리티
  * Scoreboard, Dashboard, Commitments에서 공통 사용
+ * 한 주의 시작: 월요일, 끝: 일요일
  */
 
 // 로컬 시간 기준 오늘 날짜 (YYYY-MM-DD)
@@ -10,7 +11,21 @@ export const getLocalToday = () => {
 };
 
 /**
+ * 주어진 날짜가 속한 주의 월요일을 반환
+ * @param {Date} date
+ * @returns {Date} 해당 주의 월요일
+ */
+export const getMonday = (date) => {
+    const d = new Date(date);
+    const day = d.getDay(); // 0=일, 1=월, ..., 6=토
+    const diff = day === 0 ? -6 : 1 - day; // 일요일이면 -6, 그 외 1-day
+    d.setDate(d.getDate() + diff);
+    return d;
+};
+
+/**
  * WIG 기간에 따른 동적 주차 목록 계산
+ * W1은 WIG 생성일이 속한 주의 월요일부터 시작
  * @param {Object} wig - WIG 객체 (createdAt, byWhen 필요)
  * @returns {string[]} - ['W1', 'W2', ...] 형태의 주차 배열
  */
@@ -18,14 +33,14 @@ export const calculateWeeks = (wig) => {
     if (!wig) return ['W1'];
 
     const wigCreatedDate = wig.createdAt?.split('T')[0] || '2020-01-01';
-    const startDate = new Date(wigCreatedDate);
+    const startMonday = getMonday(new Date(wigCreatedDate));
     const endDate = wig.byWhen ? new Date(wig.byWhen) : new Date();
     const today = new Date(getLocalToday());
 
     // 목표일과 오늘 중 더 늦은 날짜까지 주차 생성
     const finalDate = new Date(Math.max(endDate, today));
 
-    const diffTime = finalDate - startDate;
+    const diffTime = finalDate - startMonday;
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
     const totalWeeks = Math.max(1, Math.ceil(diffDays / 7));
 
@@ -41,9 +56,9 @@ export const getCurrentWeek = (wig) => {
     if (!wig) return 'W1';
 
     const wigCreatedDate = wig.createdAt?.split('T')[0] || '2020-01-01';
-    const startDate = new Date(wigCreatedDate);
+    const startMonday = getMonday(new Date(wigCreatedDate));
     const today = new Date(getLocalToday());
-    const diffTime = today - startDate;
+    const diffTime = today - startMonday;
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
     const currentWeekNum = Math.max(1, Math.ceil(diffDays / 7));
     const currentWeek = `W${currentWeekNum}`;
