@@ -223,9 +223,8 @@ const Dashboard = ({ wigs, selectedWigId, onSelectWig, onWigChange, refreshKey }
                 const minimizeLeads = [];
 
                 selectedWig.leadMeasures.forEach((lead, idx) => {
-                    const leadKey = `lead${idx + 1}`;
-                    const dailyActual = todayDailyData ? (todayDailyData[leadKey] || 0) : 0;
-                    const enriched = { ...lead, leadKey, dailyActual, idx };
+                    const dailyActual = todayDailyData?.leadValues?.[lead.id] ?? 0;
+                    const enriched = { ...lead, dailyActual, idx };
 
                     if (lead.goalDirection === 'MINIMIZE') {
                         minimizeLeads.push(enriched);

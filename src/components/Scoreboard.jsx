@@ -10,6 +10,9 @@ import { getMonday } from '../utils/weekUtils';
  * - 일간 데이터만 입력/수정/삭제
  * - 주간 데이터는 일간 합산으로 자동 계산 (조회만)
  * - 차트에 주간/일간 토글 버튼 있음
+ *
+ * 정규화: leadValues = { leadMeasureId: value } 맵 사용
+ * 차트 dataKey: lm_${leadMeasureId}
  */
 const Scoreboard = ({ wigs, selectedWigId, onSelectWig, onTodayDataChange }) => {
     const [dailyData, setDailyData] = useState({});
@@ -18,11 +21,11 @@ const Scoreboard = ({ wigs, selectedWigId, onSelectWig, onTodayDataChange }) => 
     // localStorage에서 차트 설정 불러오기
     const [chartTypes, setChartTypes] = useState(() => {
         const saved = localStorage.getItem('scoreboard_chartTypes');
-        return saved ? JSON.parse(saved) : { lag: 'line', lead1: 'line', lead2: 'line', lead3: 'line', lead4: 'line', lead5: 'line' };
+        return saved ? JSON.parse(saved) : { lag: 'line' };
     });
     const [chartTimeViews, setChartTimeViews] = useState(() => {
         const saved = localStorage.getItem('scoreboard_chartTimeViews');
-        return saved ? JSON.parse(saved) : { lag: 'weekly', lead1: 'weekly', lead2: 'weekly', lead3: 'weekly', lead4: 'weekly', lead5: 'weekly' };
+        return saved ? JSON.parse(saved) : { lag: 'weekly' };
     });
     const [selectedWeek, setSelectedWeek] = useState(() => {
         return localStorage.getItem('scoreboard_selectedWeek') || 'W1';
@@ -64,12 +67,7 @@ const Scoreboard = ({ wigs, selectedWigId, onSelectWig, onTodayDataChange }) => 
     };
     const [newData, setNewData] = useState({
         date: '',
-        dayOfWeek: '',
-        lead1: '',
-        lead2: '',
-        lead3: '',
-        lead4: '',
-        lead5: ''
+        dayOfWeek: ''
     });
 
     // 오늘 데이터가 이미 있는지 체크
@@ -84,6 +82,21 @@ const Scoreboard = ({ wigs, selectedWigId, onSelectWig, onTodayDataChange }) => 
     const [newWeeklyActual, setNewWeeklyActual] = useState('');
 
     const selectedWig = wigs.find(w => w.id === selectedWigId) || wigs[0];
+    const leadMeasures = selectedWig?.leadMeasures || [];
+
+    // leadMeasureId → lm_${id} 형태의 키 생성 (차트 dataKey용)
+    const lmKey = (leadId) => `lm_${leadId}`;
+
+    // API 응답의 leadValues 맵을 flat object로 변환 (차트 호환)
+    const flattenLeadValues = (item) => {
+        const flat = { ...item };
+        if (item.leadValues) {
+            Object.entries(item.leadValues).forEach(([lmId, val]) => {
+                flat[lmKey(lmId)] = val;
+            });
+        }
+        return flat;
+    };
 
     // WIG 생성일 (min 날짜로 사용)
     const wigCreatedDate = selectedWig?.createdAt?.split('T')[0] || '2020-01-01';
@@ -122,8 +135,7 @@ const Scoreboard = ({ wigs, selectedWigId, onSelectWig, onTodayDataChange }) => 
     };
 
     // 빈 날짜를 채워서 반환 (WIG 생성일 ~ 오늘)
-    // MAXIMIZE 지표: 빈 날 → 0, MINIMIZE 지표: 빈 날 → null (connectNulls로 연결)
-    const fillMissingDates = (weekData, week, leadMeasures = []) => {
+    const fillMissingDates = (weekData, week) => {
         const today = getLocalToday();
         const startDate = new Date(Math.max(new Date(wigCreatedDate), getWeekStartDate(week)));
         const endDate = new Date(Math.min(new Date(today), getWeekEndDate(week)));
@@ -131,34 +143,33 @@ const Scoreboard = ({ wigs, selectedWigId, onSelectWig, onTodayDataChange }) => 
         const filledData = [];
         const existingDates = new Set(weekData.map(d => d.date));
 
-        const defaultVal = (idx) =>
-            leadMeasures[idx]?.goalDirection === 'MINIMIZE' ? null : 0;
+        const defaultVal = (lead) =>
+            lead?.goalDirection === 'MINIMIZE' ? null : 0;
 
         for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
             const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
             if (existingDates.has(dateStr)) {
-                const item = weekData.find(item => item.date === dateStr);
-                filledData.push({
-                    ...item,
-                    lead1: item.lead1 ?? defaultVal(0),
-                    lead2: item.lead2 ?? defaultVal(1),
-                    lead3: item.lead3 ?? defaultVal(2),
-                    lead4: item.lead4 ?? defaultVal(3),
-                    lead5: item.lead5 ?? defaultVal(4),
+                const item = flattenLeadValues(weekData.find(item => item.date === dateStr));
+                // 빈 값에 기본값 채우기
+                leadMeasures.forEach(lead => {
+                    const key = lmKey(lead.id);
+                    if (item[key] == null) {
+                        item[key] = defaultVal(lead);
+                    }
                 });
+                filledData.push(item);
             } else {
-                filledData.push({
+                const emptyItem = {
                     id: `empty-${dateStr}`,
                     date: dateStr,
                     dayOfWeek: ['일', '월', '화', '수', '목', '금', '토'][d.getDay()],
-                    lead1: defaultVal(0),
-                    lead2: defaultVal(1),
-                    lead3: defaultVal(2),
-                    lead4: defaultVal(3),
-                    lead5: defaultVal(4),
                     isEmpty: true
+                };
+                leadMeasures.forEach(lead => {
+                    emptyItem[lmKey(lead.id)] = defaultVal(lead);
                 });
+                filledData.push(emptyItem);
             }
         }
         return filledData.sort((a, b) => a.date.localeCompare(b.date));
@@ -223,22 +234,21 @@ const Scoreboard = ({ wigs, selectedWigId, onSelectWig, onTodayDataChange }) => 
     // 일간 데이터에서 주간 데이터 계산 (lead 합산, actual은 주간 데이터에서)
     const calculateWeeklyData = () => {
         return weeks.map(week => {
-            const weekDailyData = dailyData[week] || [];
+            const weekDailyData = (dailyData[week] || []).map(flattenLeadValues);
             const weeklyData = weeklyActual[week];
 
             // lead는 일간 합산 (MINIMIZE 지표는 데이터 없는 주 → null로 처리)
             const leadSums = {};
-            const leadMeasures = selectedWig?.leadMeasures || [];
-            for (let i = 1; i <= 5; i++) {
-                const isMinimize = leadMeasures[i - 1]?.goalDirection === 'MINIMIZE';
-                const hasData = weekDailyData.some(d => d[`lead${i}`] != null);
-                leadSums[`lead${i}`] = (!hasData && isMinimize)
+            for (const lead of leadMeasures) {
+                const key = lmKey(lead.id);
+                const isMinimize = lead.goalDirection === 'MINIMIZE';
+                const hasData = weekDailyData.some(d => d[key] != null);
+                leadSums[key] = (!hasData && isMinimize)
                     ? null
-                    : weekDailyData.reduce((sum, d) => sum + (d[`lead${i}`] || 0), 0);
+                    : weekDailyData.reduce((sum, d) => sum + (d[key] || 0), 0);
             }
 
             // actual은 주간 데이터에서 직접 가져옴
-            // MINIMIZE lag(toY < fromX)는 데이터 없는 주 → null (connectNulls로 연결)
             const lagIsMinimize = parseFloat(selectedWig?.toY) < parseFloat(selectedWig?.fromX);
             const actual = weeklyData?.actual ?? (lagIsMinimize ? null : 0);
 
@@ -286,15 +296,20 @@ const Scoreboard = ({ wigs, selectedWigId, onSelectWig, onTodayDataChange }) => 
                 return;
             }
 
+            // leadValues 맵 구성 (leadMeasureId → value)
+            const leadValues = {};
+            leadMeasures.forEach(lead => {
+                const val = newData[lmKey(lead.id)];
+                if (val !== '' && val != null) {
+                    leadValues[lead.id] = parseFloat(val);
+                }
+            });
+
             const response = await dailyDataApi.create({
                 date: newData.date,
                 week: selectedWeek,
                 dayOfWeek: newData.dayOfWeek,
-                lead1: newData.lead1 ? parseFloat(newData.lead1) : null,
-                lead2: newData.lead2 ? parseFloat(newData.lead2) : null,
-                lead3: newData.lead3 ? parseFloat(newData.lead3) : null,
-                lead4: newData.lead4 ? parseFloat(newData.lead4) : null,
-                lead5: newData.lead5 ? parseFloat(newData.lead5) : null,
+                leadValues,
                 wigId: selectedWigId
             });
 
@@ -306,7 +321,7 @@ const Scoreboard = ({ wigs, selectedWigId, onSelectWig, onTodayDataChange }) => 
 
             const inputDate = newData.date;
             setCreatingDate(null);
-            setNewData({ date: '', dayOfWeek: '', lead1: '', lead2: '', lead3: '', lead4: '', lead5: '' });
+            setNewData({ date: '', dayOfWeek: '' });
 
             // 오늘 데이터 변경 시 Dashboard에 알림
             if (inputDate === today && onTodayDataChange) {
@@ -329,15 +344,20 @@ const Scoreboard = ({ wigs, selectedWigId, onSelectWig, onTodayDataChange }) => 
                 return;
             }
 
+            // leadValues 맵 구성 (leadMeasureId → value)
+            const leadValues = {};
+            leadMeasures.forEach(lead => {
+                const val = editData[lmKey(lead.id)];
+                if (val !== '' && val != null) {
+                    leadValues[lead.id] = parseFloat(val);
+                }
+            });
+
             const response = await dailyDataApi.update(id, {
                 date: editData.date,
                 week: editData.week,
                 dayOfWeek: editData.dayOfWeek,
-                lead1: editData.lead1 ? parseFloat(editData.lead1) : null,
-                lead2: editData.lead2 ? parseFloat(editData.lead2) : null,
-                lead3: editData.lead3 ? parseFloat(editData.lead3) : null,
-                lead4: editData.lead4 ? parseFloat(editData.lead4) : null,
-                lead5: editData.lead5 ? parseFloat(editData.lead5) : null,
+                leadValues,
                 wigId: selectedWigId
             });
 
@@ -387,7 +407,8 @@ const Scoreboard = ({ wigs, selectedWigId, onSelectWig, onTodayDataChange }) => 
 
     const startEdit = (item) => {
         setEditingId(item.id);
-        setEditData({ ...item });
+        // API 데이터를 flat 형태로 변환하여 편집 상태에 저장
+        setEditData(flattenLeadValues(item));
     };
 
     if (loading) {
@@ -396,7 +417,7 @@ const Scoreboard = ({ wigs, selectedWigId, onSelectWig, onTodayDataChange }) => 
 
     if (!selectedWig) return null;
 
-    const currentDailyData = fillMissingDates(dailyData[selectedWeek] || [], selectedWeek, selectedWig.leadMeasures || []);
+    const currentDailyData = fillMissingDates(dailyData[selectedWeek] || [], selectedWeek);
 
     return (
         <div className="space-y-6">
@@ -482,15 +503,15 @@ const Scoreboard = ({ wigs, selectedWigId, onSelectWig, onTodayDataChange }) => 
                 )}
 
                 {/* Lead Measure 차트들 */}
-                {selectedWig.leadMeasures?.map((lead, idx) => {
-                    const chartKey = `lead${idx + 1}`;
+                {leadMeasures.map((lead, idx) => {
+                    const chartKey = lmKey(lead.id);
                     const timeView = chartTimeViews[chartKey] || 'weekly';
-                    const dataToShow = timeView === 'weekly' ? weeklyChartData : fillMissingDates(dailyData[selectedWeek] || [], selectedWeek, selectedWig.leadMeasures || []);
+                    const dataToShow = timeView === 'weekly' ? weeklyChartData : fillMissingDates(dailyData[selectedWeek] || [], selectedWeek);
                     const xKey = timeView === 'weekly' ? 'week' : 'dayOfWeek';
                     const targetValue = timeView === 'weekly' ? lead.weeklyTarget : lead.dailyTarget;
 
                     const isBoolean = lead.leadMeasureType === 'BOOLEAN';
-                    const dailyCalendarData = fillMissingDates(dailyData[selectedWeek] || [], selectedWeek, selectedWig.leadMeasures || []);
+                    const dailyCalendarData = fillMissingDates(dailyData[selectedWeek] || [], selectedWeek);
                     const oCount = dailyCalendarData.filter(d => (d[chartKey] || 0) >= 1).length;
 
                     return (
@@ -578,7 +599,7 @@ const Scoreboard = ({ wigs, selectedWigId, onSelectWig, onTodayDataChange }) => 
                                                 <YAxis domain={[0, dataMax => Math.max(dataMax, parseFloat(targetValue || 0) * 1.1)]} />
                                                 <Tooltip />
                                                 <ReferenceLine y={targetValue} stroke="#ef4444" strokeDasharray="5 5" />
-                                                <Line type="monotone" dataKey={chartKey} stroke={["#10b981", "#f59e0b", "#3b82f6", "#ef4444", "#8b5cf6"][idx]} strokeWidth={3} name={lead.name} connectNulls={lead.goalDirection === 'MINIMIZE'} />
+                                                <Line type="monotone" dataKey={chartKey} stroke={["#10b981", "#f59e0b", "#3b82f6", "#ef4444", "#8b5cf6"][idx % 5]} strokeWidth={3} name={lead.name} connectNulls={lead.goalDirection === 'MINIMIZE'} />
                                             </LineChart>
                                         ) : (
                                             <BarChart data={dataToShow}>
@@ -587,7 +608,7 @@ const Scoreboard = ({ wigs, selectedWigId, onSelectWig, onTodayDataChange }) => 
                                                 <YAxis domain={[0, dataMax => Math.max(dataMax, parseFloat(targetValue || 0) * 1.1)]} />
                                                 <Tooltip />
                                                 <ReferenceLine y={targetValue} stroke="#ef4444" strokeDasharray="5 5" />
-                                                <Bar dataKey={chartKey} fill={["#10b981", "#f59e0b", "#3b82f6", "#ef4444", "#8b5cf6"][idx]} name={lead.name} />
+                                                <Bar dataKey={chartKey} fill={["#10b981", "#f59e0b", "#3b82f6", "#ef4444", "#8b5cf6"][idx % 5]} name={lead.name} />
                                             </BarChart>
                                         )}
                                     </ResponsiveContainer>
@@ -626,8 +647,8 @@ const Scoreboard = ({ wigs, selectedWigId, onSelectWig, onTodayDataChange }) => 
                                 const weekSummary = weeklyChartData.find(w => w.week === selectedWeek);
                                 return (
                                     <span className="ml-2">
-                                        {selectedWig.leadMeasures?.map((lead, idx) => {
-                                            const val = weekSummary?.[`lead${idx + 1}`] || 0;
+                                        {leadMeasures.map(lead => {
+                                            const val = weekSummary?.[lmKey(lead.id)] || 0;
                                             return (
                                                 <span key={lead.id} className="mr-4">
                                                     {lead.name}: {lead.leadMeasureType === 'BOOLEAN' ? `${val}/7일` : `${val} ${lead.unit}`}
@@ -722,7 +743,7 @@ const Scoreboard = ({ wigs, selectedWigId, onSelectWig, onTodayDataChange }) => 
                         <tr>
                             <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">날짜</th>
                             <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">요일</th>
-                            {selectedWig.leadMeasures?.map(lead => (
+                            {leadMeasures.map(lead => (
                                 <th key={lead.id} className="px-4 py-3 text-left text-sm font-semibold text-gray-700">
                                     {lead.name} {lead.leadMeasureType === 'BOOLEAN' ? '(OX)' : `(${lead.unit})`}
                                 </th>
@@ -754,8 +775,8 @@ const Scoreboard = ({ wigs, selectedWigId, onSelectWig, onTodayDataChange }) => 
                                             />
                                         </td>
                                         <td className="px-4 py-3">{editData.dayOfWeek}</td>
-                                        {selectedWig.leadMeasures?.map((lead, idx) => {
-                                            const key = `lead${idx + 1}`;
+                                        {leadMeasures.map((lead, idx) => {
+                                            const key = lmKey(lead.id);
                                             return (
                                                 <td key={lead.id} className="px-4 py-3">
                                                     {lead.leadMeasureType === 'BOOLEAN' ? (
@@ -795,8 +816,8 @@ const Scoreboard = ({ wigs, selectedWigId, onSelectWig, onTodayDataChange }) => 
                                     <>
                                         <td className="px-4 py-3">{item.date}</td>
                                         <td className="px-4 py-3">{item.dayOfWeek}</td>
-                                        {selectedWig.leadMeasures?.map((lead, idx) => {
-                                            const key = `lead${idx + 1}`;
+                                        {leadMeasures.map((lead, idx) => {
+                                            const key = lmKey(lead.id);
                                             return (
                                                 <td key={lead.id} className="px-4 py-3">
                                                     {lead.leadMeasureType === 'BOOLEAN' ? (
@@ -814,7 +835,7 @@ const Scoreboard = ({ wigs, selectedWigId, onSelectWig, onTodayDataChange }) => 
                                                         <input
                                                             type="number"
                                                             step="0.1"
-                                                            value={newData[key]}
+                                                            value={newData[key] || ''}
                                                             onChange={e => setNewData({...newData, [key]: e.target.value})}
                                                             className="p-1 border rounded w-20"
                                                             placeholder={lead.dailyTarget}
@@ -828,7 +849,7 @@ const Scoreboard = ({ wigs, selectedWigId, onSelectWig, onTodayDataChange }) => 
                                             <button onClick={handleCreate} className="p-1 text-green-600 hover:bg-green-50 rounded mr-1">
                                                 <Check size={16} />
                                             </button>
-                                            <button onClick={() => { setCreatingDate(null); setNewData({ date: '', dayOfWeek: '', lead1: '', lead2: '', lead3: '', lead4: '', lead5: '' }); }} className="p-1 text-gray-600 hover:bg-gray-100 rounded">
+                                            <button onClick={() => { setCreatingDate(null); setNewData({ date: '', dayOfWeek: '' }); }} className="p-1 text-gray-600 hover:bg-gray-100 rounded">
                                                 <X size={16} />
                                             </button>
                                         </td>
@@ -838,8 +859,8 @@ const Scoreboard = ({ wigs, selectedWigId, onSelectWig, onTodayDataChange }) => 
                                     <>
                                         <td className="px-4 py-3">{item.date}</td>
                                         <td className="px-4 py-3">{item.dayOfWeek}</td>
-                                        {selectedWig.leadMeasures?.map((lead, idx) => {
-                                            const val = item[`lead${idx + 1}`];
+                                        {leadMeasures.map(lead => {
+                                            const val = item[lmKey(lead.id)];
                                             return (
                                                 <td key={lead.id} className="px-4 py-3">
                                                     {lead.leadMeasureType === 'BOOLEAN' ? (
@@ -864,12 +885,7 @@ const Scoreboard = ({ wigs, selectedWigId, onSelectWig, onTodayDataChange }) => 
                                                         setCreatingDate(item.date);
                                                         setNewData({
                                                             date: item.date,
-                                                            dayOfWeek: item.dayOfWeek,
-                                                            lead1: '',
-                                                            lead2: '',
-                                                            lead3: '',
-                                                            lead4: '',
-                                                            lead5: ''
+                                                            dayOfWeek: item.dayOfWeek
                                                         });
                                                     }}
                                                     className="px-2 py-1 text-xs text-blue-600 hover:bg-blue-50 rounded"
