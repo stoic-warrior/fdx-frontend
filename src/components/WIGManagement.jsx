@@ -696,24 +696,24 @@ const WIGManagement = ({ wigs, onWigChange, autoShowForm, expandedWigId, setExpa
                                                         // 보기 모드
                                                         <>
                                                             <div className="flex items-center gap-2">
-                                                                <span className="font-medium">{lead.name}</span>
                                                                 {lead.leadMeasureType === 'BOOLEAN' ? (
                                                                     <span className="text-xs px-1.5 py-0.5 rounded bg-orange-100 text-orange-700">
                                                                         OX
                                                                     </span>
                                                                 ) : (
-                                                                    <>
-                                                                        <span className={`text-xs px-1.5 py-0.5 rounded ${
-                                                                            lead.goalDirection === 'MINIMIZE'
-                                                                                ? 'bg-orange-100 text-orange-700'
-                                                                                : 'bg-green-100 text-green-700'
-                                                                        }`}>
-                                                                            {lead.goalDirection === 'MINIMIZE' ? '↓' : '↑'}
-                                                                        </span>
-                                                                        <span className="text-gray-500 text-sm">
-                                                                            (일 {lead.dailyTarget}{lead.unit} / 주 {lead.weeklyTarget}{lead.unit})
-                                                                        </span>
-                                                                    </>
+                                                                    <span className={`text-xs px-1.5 py-0.5 rounded ${
+                                                                        lead.goalDirection === 'MINIMIZE'
+                                                                            ? 'bg-orange-100 text-orange-700'
+                                                                            : 'bg-green-100 text-green-700'
+                                                                    }`}>
+                                                                        {lead.goalDirection === 'MINIMIZE' ? '↓' : '↑'}
+                                                                    </span>
+                                                                )}
+                                                                <span className="font-medium">{lead.name}</span>
+                                                                {lead.leadMeasureType !== 'BOOLEAN' && (
+                                                                    <span className="text-gray-500 text-sm">
+                                                                        (일 {lead.dailyTarget}{lead.unit} / 주 {lead.weeklyTarget}{lead.unit})
+                                                                    </span>
                                                                 )}
                                                             </div>
                                                             <div className="flex gap-1">
