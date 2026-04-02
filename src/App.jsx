@@ -194,13 +194,14 @@ const App = () => {
     const Header = () => (
         <div className="bg-white shadow">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                <div className="flex justify-between items-center py-4">
-                    <h1 className="text-2xl font-bold text-gray-900">WIG Tracker</h1>
-                    <div className="flex items-center space-x-4">
-                        <p className="text-sm text-gray-600">4 Disciplines of Execution</p>
-
+                <div className="flex justify-between items-center py-4 min-w-0">
+                    <div className="flex items-center space-x-3 min-w-0 shrink-0">
+                        <h1 className="text-xl sm:text-2xl font-bold text-gray-900 whitespace-nowrap">WIG Tracker</h1>
+                        <p className="text-sm text-gray-600 hidden lg:block">4 Disciplines of Execution</p>
+                    </div>
+                    <div className="flex items-center space-x-2 sm:space-x-4 shrink-0">
                         {/* 사용자 프로필 */}
-                        <div className="flex items-center space-x-3">
+                        <div className="flex items-center space-x-2 sm:space-x-3">
                             {user?.profileImageUrl ? (
                                 <img
                                     src={user.profileImageUrl}
@@ -224,10 +225,10 @@ const App = () => {
 
                         <button
                             onClick={handleLogout}
-                            className="flex items-center px-3 py-1.5 text-sm text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                            className="flex items-center px-2 sm:px-3 py-1.5 text-sm text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors whitespace-nowrap"
                         >
-                            <LogOut size={16} className="mr-1" />
-                            로그아웃
+                            <LogOut size={16} className="sm:mr-1" />
+                            <span className="hidden sm:inline">로그아웃</span>
                         </button>
                     </div>
                 </div>
@@ -262,7 +263,7 @@ const App = () => {
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
                 {/* 탭 네비게이션 */}
                 <div className="mb-6">
-                    <div className="flex space-x-2 border-b border-gray-200">
+                    <div className="flex overflow-x-auto border-b border-gray-200 -mx-4 px-4 sm:mx-0 sm:px-0 scrollbar-hide">
                         {[
                             { id: 'dashboard', label: '대시보드', icon: Target },
                             { id: 'scoreboard', label: '스코어보드', icon: TrendingUp },
@@ -272,14 +273,14 @@ const App = () => {
                             <button
                                 key={tab.id}
                                 onClick={() => setActiveTab(tab.id)}
-                                className={`flex items-center space-x-2 px-6 py-3 font-medium transition-colors ${
+                                className={`flex items-center space-x-1.5 sm:space-x-2 px-3 sm:px-6 py-3 font-medium transition-colors whitespace-nowrap shrink-0 ${
                                     activeTab === tab.id
                                         ? 'text-blue-600 border-b-2 border-blue-600'
                                         : 'text-gray-600 hover:text-gray-900'
                                 }`}
                             >
-                                <tab.icon size={20} />
-                                <span>{tab.label}</span>
+                                <tab.icon size={18} className="sm:w-5 sm:h-5" />
+                                <span className="text-sm sm:text-base">{tab.label}</span>
                             </button>
                         ))}
                     </div>
