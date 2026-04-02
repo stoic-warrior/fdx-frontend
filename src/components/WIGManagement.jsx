@@ -121,8 +121,9 @@ const WIGManagement = ({ wigs, onWigChange, autoShowForm, expandedWigId, setExpa
                 wigId
             };
             if (newLeadMeasure.leadMeasureType === 'NUMERIC') {
-                payload.dailyTarget = parseFloat(newLeadMeasure.dailyTarget);
-                payload.weeklyTarget = parseFloat(newLeadMeasure.weeklyTarget);
+                const daily = parseFloat(newLeadMeasure.dailyTarget);
+                payload.dailyTarget = daily;
+                payload.weeklyTarget = newLeadMeasure.weeklyTarget ? parseFloat(newLeadMeasure.weeklyTarget) : daily * 7;
                 payload.unit = newLeadMeasure.unit;
             }
             await leadMeasureApi.create(payload);
@@ -145,8 +146,9 @@ const WIGManagement = ({ wigs, onWigChange, autoShowForm, expandedWigId, setExpa
                 wigId: wigId
             };
             if (editingLeadMeasure.leadMeasureType === 'NUMERIC') {
-                updatePayload.dailyTarget = parseFloat(editingLeadMeasure.dailyTarget);
-                updatePayload.weeklyTarget = parseFloat(editingLeadMeasure.weeklyTarget);
+                const daily = parseFloat(editingLeadMeasure.dailyTarget);
+                updatePayload.dailyTarget = daily;
+                updatePayload.weeklyTarget = editingLeadMeasure.weeklyTarget ? parseFloat(editingLeadMeasure.weeklyTarget) : daily * 7;
                 updatePayload.unit = editingLeadMeasure.unit;
             }
             await leadMeasureApi.update(editingLeadMeasure.id, updatePayload);
