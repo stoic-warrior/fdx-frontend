@@ -577,6 +577,7 @@ const WIGManagement = ({ wigs, onWigChange, autoShowForm, expandedWigId, setExpa
                                                     <>
                                                         <input
                                                             type="number"
+                                                            min="1"
                                                             placeholder="일일 목표"
                                                             value={newLeadMeasure.dailyTarget}
                                                             onChange={e => setNewLeadMeasure({...newLeadMeasure, dailyTarget: e.target.value})}
@@ -584,6 +585,7 @@ const WIGManagement = ({ wigs, onWigChange, autoShowForm, expandedWigId, setExpa
                                                         />
                                                         <input
                                                             type="number"
+                                                            min="1"
                                                             placeholder="주간 목표"
                                                             value={newLeadMeasure.weeklyTarget}
                                                             onChange={e => setNewLeadMeasure({...newLeadMeasure, weeklyTarget: e.target.value})}
@@ -658,6 +660,7 @@ const WIGManagement = ({ wigs, onWigChange, autoShowForm, expandedWigId, setExpa
                                                                 <>
                                                                     <input
                                                                         type="number"
+                                                                        min="1"
                                                                         value={editingLeadMeasure.dailyTarget}
                                                                         onChange={e => setEditingLeadMeasure({...editingLeadMeasure, dailyTarget: e.target.value})}
                                                                         className="p-1 border rounded w-20"
@@ -665,6 +668,7 @@ const WIGManagement = ({ wigs, onWigChange, autoShowForm, expandedWigId, setExpa
                                                                     />
                                                                     <input
                                                                         type="number"
+                                                                        min="1"
                                                                         value={editingLeadMeasure.weeklyTarget}
                                                                         onChange={e => setEditingLeadMeasure({...editingLeadMeasure, weeklyTarget: e.target.value})}
                                                                         className="p-1 border rounded w-20"
