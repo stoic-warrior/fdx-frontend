@@ -136,9 +136,8 @@ const Scoreboard = ({ wigs, selectedWigId, onSelectWig, onTodayDataChange }) => 
 
     // 빈 날짜를 채워서 반환 (WIG 생성일 ~ 오늘)
     const fillMissingDates = (weekData, week) => {
-        const today = getLocalToday();
         const startDate = new Date(Math.max(new Date(wigCreatedDate), getWeekStartDate(week)));
-        const endDate = new Date(Math.min(new Date(today), getWeekEndDate(week)));
+        const endDate = getWeekEndDate(week);
 
         const filledData = [];
         const existingDates = new Set(weekData.map(d => d.date));
@@ -753,7 +752,7 @@ const Scoreboard = ({ wigs, selectedWigId, onSelectWig, onTodayDataChange }) => 
                         </thead>
                         <tbody className="divide-y divide-gray-200">
                         {currentDailyData.map(item => (
-                            <tr key={item.id} className={`hover:bg-gray-50 ${item.isEmpty ? 'bg-gray-50 text-gray-400' : ''}`}>
+                            <tr key={item.id} className={`hover:bg-gray-50 ${item.isEmpty ? 'bg-gray-50 text-gray-400' : ''} ${item.date > getLocalToday() ? 'opacity-40' : ''}`}>
                                 {editingId === item.id && !item.isEmpty ? (
                                     // 편집 모드
                                     <>
@@ -879,7 +878,8 @@ const Scoreboard = ({ wigs, selectedWigId, onSelectWig, onTodayDataChange }) => 
                                         })}
                                         <td className="px-4 py-3 text-center">
                                             {item.isEmpty ? (
-                                                // 빈 데이터: 클릭하면 인라인 입력 모드
+                                                // 빈 데이터: 미래가 아니면 인라인 입력 모드
+                                                item.date <= getLocalToday() ? (
                                                 <button
                                                     onClick={() => {
                                                         setCreatingDate(item.date);
@@ -892,6 +892,7 @@ const Scoreboard = ({ wigs, selectedWigId, onSelectWig, onTodayDataChange }) => 
                                                 >
                                                     입력
                                                 </button>
+                                                ) : null
                                             ) : (
                                                 // 실제 데이터: 수정/삭제
                                                 <>
