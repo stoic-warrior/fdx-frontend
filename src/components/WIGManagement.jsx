@@ -580,7 +580,10 @@ const WIGManagement = ({ wigs, onWigChange, autoShowForm, expandedWigId, setExpa
                                                             min="1"
                                                             placeholder="일일 목표"
                                                             value={newLeadMeasure.dailyTarget}
-                                                            onChange={e => setNewLeadMeasure({...newLeadMeasure, dailyTarget: e.target.value})}
+                                                            onChange={e => {
+                                                                const v = e.target.value;
+                                                                setNewLeadMeasure({...newLeadMeasure, dailyTarget: v === '' ? '' : Math.max(1, Number(v))});
+                                                            }}
                                                             className="p-2 border rounded"
                                                         />
                                                         <input
@@ -588,7 +591,10 @@ const WIGManagement = ({ wigs, onWigChange, autoShowForm, expandedWigId, setExpa
                                                             min="1"
                                                             placeholder="주간 목표"
                                                             value={newLeadMeasure.weeklyTarget}
-                                                            onChange={e => setNewLeadMeasure({...newLeadMeasure, weeklyTarget: e.target.value})}
+                                                            onChange={e => {
+                                                                const v = e.target.value;
+                                                                setNewLeadMeasure({...newLeadMeasure, weeklyTarget: v === '' ? '' : Math.max(1, Number(v))});
+                                                            }}
                                                             className="p-2 border rounded"
                                                         />
                                                         <input
@@ -662,7 +668,10 @@ const WIGManagement = ({ wigs, onWigChange, autoShowForm, expandedWigId, setExpa
                                                                         type="number"
                                                                         min="1"
                                                                         value={editingLeadMeasure.dailyTarget}
-                                                                        onChange={e => setEditingLeadMeasure({...editingLeadMeasure, dailyTarget: e.target.value})}
+                                                                        onChange={e => {
+                                                                            const v = e.target.value;
+                                                                            setEditingLeadMeasure({...editingLeadMeasure, dailyTarget: v === '' ? '' : Math.max(1, Number(v))});
+                                                                        }}
                                                                         className="p-1 border rounded w-20"
                                                                         placeholder="일일"
                                                                     />
@@ -670,7 +679,10 @@ const WIGManagement = ({ wigs, onWigChange, autoShowForm, expandedWigId, setExpa
                                                                         type="number"
                                                                         min="1"
                                                                         value={editingLeadMeasure.weeklyTarget}
-                                                                        onChange={e => setEditingLeadMeasure({...editingLeadMeasure, weeklyTarget: e.target.value})}
+                                                                        onChange={e => {
+                                                                            const v = e.target.value;
+                                                                            setEditingLeadMeasure({...editingLeadMeasure, weeklyTarget: v === '' ? '' : Math.max(1, Number(v))});
+                                                                        }}
                                                                         className="p-1 border rounded w-20"
                                                                         placeholder="주간"
                                                                     />
